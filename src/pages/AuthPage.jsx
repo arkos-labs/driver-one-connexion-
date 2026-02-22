@@ -22,9 +22,24 @@ export default function AuthPage() {
     if (error) {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
-    } else {
-      navigate("/missions");
+      return;
     }
+
+    // Vérifier le rôle de l'utilisateur
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || profile?.role !== 'courier') {
+      await supabase.auth.signOut();
+      setError("Accès refusé. Cette application est réservée aux coursiers.");
+      setLoading(false);
+      return;
+    }
+
+    navigate("/missions");
   };
 
   return (
