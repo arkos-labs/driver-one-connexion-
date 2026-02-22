@@ -64,6 +64,12 @@ export default function MissionDetails() {
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [pendingAction, setPendingAction] = useState(null); // "DELIVER" | "PROOF"
 
+  const [pickupOpen, setPickupOpen] = useState(true);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+
+  const pickupStages = ["assigned", "accepted", "dispatched", "driver_accepted", "arrived_pickup"];
+  const deliveryStages = ["picked_up", "in_progress", "on_delivery"];
+
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
@@ -74,6 +80,17 @@ export default function MissionDetails() {
   useEffect(() => {
     fetchMission();
   }, [id]);
+
+  useEffect(() => {
+    if (!mission?.status) return;
+    if (mission.status === "assigned" || mission.status === "accepted") {
+      setPickupOpen(true);
+      setDeliveryOpen(false);
+    } else if (mission.status === "picked_up" || mission.status === "delivered") {
+      setPickupOpen(false);
+      setDeliveryOpen(true);
+    }
+  }, [mission?.status]);
 
   const fetchMission = async () => {
     setLoading(true);
@@ -181,6 +198,9 @@ export default function MissionDetails() {
       updated_at: now,
       picked_up_at: now
     });
+    // Ouvre livraison immédiatement sans attendre le refresh
+    setPickupOpen(false);
+    setDeliveryOpen(true);
   };
 
   // Extraction des instructions depuis la mission (colonnes dédiées si dispo) puis fallback sur notes
@@ -394,8 +414,14 @@ export default function MissionDetails() {
         </section>
 
         <section className="px-4 space-y-3">
-          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={(mission.status === "assigned" || mission.status === "accepted") || !!pickupInstructions}>
-            <summary className="list-none cursor-pointer">
+          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={pickupOpen}>
+            <summary
+              className="list-none cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setPickupOpen((v) => !v);
+              }}
+            >
               <div className="p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-[#1d283a] text-white flex items-center justify-center">
@@ -441,8 +467,14 @@ export default function MissionDetails() {
             </div>
           </details>
 
-          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={(mission.status !== "assigned" && mission.status !== "accepted") || !!deliveryInstructions}>
-            <summary className="list-none cursor-pointer">
+          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={deliveryOpen}>
+            <summary
+              className="list-none cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setDeliveryOpen((v) => !v);
+              }}
+            >
               <div className="p-3">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center">
@@ -541,7 +573,7 @@ export default function MissionDetails() {
                 </button>
               )}
 
-              {mission.status === "accepted" && (
+              {pickupStages.includes(mission.status) && mission.status !== "assigned" && (
                 <button
                   type="button"
                   onClick={handlePickup}
@@ -551,7 +583,7 @@ export default function MissionDetails() {
                 </button>
               )}
 
-              {mission.status === "picked_up" && (
+              {deliveryStages.includes(mission.status) && (
                 <button
                   type="button"
                   onClick={() => {
