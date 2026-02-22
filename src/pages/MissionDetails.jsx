@@ -210,6 +210,34 @@ export default function MissionDetails() {
   const deliveryAddr = mission.delivery_address || "";
   const deliveryCity = `${mission.delivery_postal_code || ''} ${mission.delivery_city || ''}`.trim();
 
+  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ...")
+  const { pickupInstructions, deliveryInstructions } = useMemo(() => {
+    if (!mission.notes) return { pickupInstructions: null, deliveryInstructions: null };
+    const parts = mission.notes.split('|');
+    let p = null;
+    let d = null;
+    parts.forEach(part => {
+      const trimmed = part.trim();
+      if (trimmed.toLowerCase().includes('enlèvement:')) {
+        p = trimmed.split(/enlèvement:/i)[1]?.trim();
+      } else if (trimmed.toLowerCase().includes('livraison:')) {
+        d = trimmed.split(/livraison:/i)[1]?.trim();
+      }
+    });
+
+    // Filtre phone/dimensions/etc.
+    const filter = (text) => {
+      if (!text || text === "." || text.endsWith(":")) return null;
+      const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
+      const genericPhoneRegex = /\b\d{6,}\b/g;
+      if (phoneRegex.test(text) || genericPhoneRegex.test(text)) return null;
+      if (text.startsWith("Dimensions") || text.startsWith("Dims")) return null;
+      return text;
+    };
+
+    return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
+  }, [mission.notes]);
+
   return (
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
       {saving && (
@@ -336,10 +364,10 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
-                {mission.pickup_access_code && (
-                  <div className="mt-3 p-2 bg-gray-50 rounded-lg">
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Code / Access</label>
-                    <p className="text-sm font-bold text-[#1d283a] select-all">{mission.pickup_access_code}</p>
+                {pickupInstructions && (
+                  <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-lg">
+                    <label className="block text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1.5">Instructions Enlèvement</label>
+                    <p className="text-sm font-medium text-slate-100 leading-relaxed">{pickupInstructions}</p>
                   </div>
                 )}
               </div>
@@ -378,10 +406,10 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
-                {mission.delivery_access_code && (
-                  <div className="mt-3 p-2 bg-gray-50 rounded-lg">
-                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Code / Access</label>
-                    <p className="text-sm font-bold text-[#1d283a] select-all">{mission.delivery_access_code}</p>
+                {deliveryInstructions && (
+                  <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-lg">
+                    <label className="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">Instructions Livraison</label>
+                    <p className="text-sm font-medium text-slate-100 leading-relaxed">{deliveryInstructions}</p>
                   </div>
                 )}
               </div>
@@ -392,7 +420,7 @@ export default function MissionDetails() {
             <summary className="list-none cursor-pointer">
               <div className="flex items-center gap-2">
                 <span className="text-gray-400">📦</span>
-                <h3 className="font-bold uppercase text-xs tracking-wider">Détails de la mission</h3>
+                <h3 className="font-bold uppercase text-xs tracking-wider">Colis & Service</h3>
               </div>
             </summary>
             <div className="mt-4 space-y-4">
@@ -418,43 +446,8 @@ export default function MissionDetails() {
               </div>
               {mission.package_description && (
                 <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Description</p>
+                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Nature du contenu</p>
                   <p className="text-sm font-semibold">{mission.package_description}</p>
-                </div>
-              )}
-              {mission.notes && (
-                <div className="mt-2">
-                  <div className="p-4 bg-slate-900 rounded-2xl shadow-lg border border-slate-800">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                        <span className="text-blue-400 text-lg">📝</span>
-                      </div>
-                      <p className="text-xs font-black text-white uppercase tracking-[0.2em]">Instructions Dispatch</p>
-                    </div>
-                    <div className="space-y-2">
-                      {mission.notes.split('|').map((notePart, index) => {
-                        const trimmed = notePart.trim();
-                        // 1. Remove empty or separator parts
-                        if (!trimmed || trimmed === "." || trimmed.endsWith(":")) return null;
-
-                        // 2. Filter out specific headers
-                        if (trimmed.startsWith("Dimensions") || trimmed.startsWith("Dims") || trimmed.startsWith("Tél")) return null;
-
-                        // 3. Regex to detect phone numbers (at least 6 digits) and hide them
-                        const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
-                        const genericPhoneRegex = /\b\d{6,}\b/g;
-
-                        if (phoneRegex.test(trimmed) || genericPhoneRegex.test(trimmed)) return null;
-
-                        return (
-                          <div key={index} className="bg-slate-800/50 px-4 py-3 rounded-xl text-sm font-medium text-slate-100 flex items-start gap-3 border border-slate-700/50">
-                            <span className="text-blue-500 mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                            <span className="leading-relaxed">{trimmed}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
