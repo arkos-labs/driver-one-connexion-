@@ -183,6 +183,34 @@ export default function MissionDetails() {
     });
   };
 
+  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ...")
+  const { pickupInstructions, deliveryInstructions } = useMemo(() => {
+    if (!mission?.notes) return { pickupInstructions: null, deliveryInstructions: null };
+    const parts = mission.notes.split('|');
+    let p = null;
+    let d = null;
+    parts.forEach(part => {
+      const trimmed = part.trim();
+      if (trimmed.toLowerCase().includes('enlèvement:')) {
+        p = trimmed.split(/enlèvement:/i)[1]?.trim();
+      } else if (trimmed.toLowerCase().includes('livraison:')) {
+        d = trimmed.split(/livraison:/i)[1]?.trim();
+      }
+    });
+
+    // Filtre phone/dimensions/etc.
+    const filter = (text) => {
+      if (!text || text === "." || text.endsWith(":")) return null;
+      const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
+      const genericPhoneRegex = /\b\d{6,}\b/g;
+      if (phoneRegex.test(text) || genericPhoneRegex.test(text)) return null;
+      if (text.startsWith("Dimensions") || text.startsWith("Dims")) return null;
+      return text;
+    };
+
+    return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
+  }, [mission?.notes]);
+
   if (loading) return <div className="p-4">Chargement...</div>;
 
   if (!mission) {
@@ -209,34 +237,6 @@ export default function MissionDetails() {
   const deliveryName = mission.delivery_name || mission.delivery_address || "Livraison";
   const deliveryAddr = mission.delivery_address || "";
   const deliveryCity = `${mission.delivery_postal_code || ''} ${mission.delivery_city || ''}`.trim();
-
-  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ...")
-  const { pickupInstructions, deliveryInstructions } = useMemo(() => {
-    if (!mission.notes) return { pickupInstructions: null, deliveryInstructions: null };
-    const parts = mission.notes.split('|');
-    let p = null;
-    let d = null;
-    parts.forEach(part => {
-      const trimmed = part.trim();
-      if (trimmed.toLowerCase().includes('enlèvement:')) {
-        p = trimmed.split(/enlèvement:/i)[1]?.trim();
-      } else if (trimmed.toLowerCase().includes('livraison:')) {
-        d = trimmed.split(/livraison:/i)[1]?.trim();
-      }
-    });
-
-    // Filtre phone/dimensions/etc.
-    const filter = (text) => {
-      if (!text || text === "." || text.endsWith(":")) return null;
-      const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
-      const genericPhoneRegex = /\b\d{6,}\b/g;
-      if (phoneRegex.test(text) || genericPhoneRegex.test(text)) return null;
-      if (text.startsWith("Dimensions") || text.startsWith("Dims")) return null;
-      return text;
-    };
-
-    return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
-  }, [mission.notes]);
 
   return (
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
