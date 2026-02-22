@@ -336,20 +336,10 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
-                {(mission.pickup_phone || mission.pickup_access_code) && (
-                  <div className="grid grid-cols-2 gap-2 mt-3 p-2 bg-gray-50 rounded-lg">
-                    {mission.pickup_phone && (
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Tél. sur place</label>
-                        <p className="text-sm font-bold text-blue-600 select-all"><a href={`tel:${mission.pickup_phone}`}>{mission.pickup_phone}</a></p>
-                      </div>
-                    )}
-                    {mission.pickup_access_code && (
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Code / Instr.</label>
-                        <p className="text-sm font-bold text-[#1d283a] select-all">{mission.pickup_access_code}</p>
-                      </div>
-                    )}
+                {mission.pickup_access_code && (
+                  <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Code / Access</label>
+                    <p className="text-sm font-bold text-[#1d283a] select-all">{mission.pickup_access_code}</p>
                   </div>
                 )}
               </div>
@@ -388,6 +378,12 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
+                {mission.delivery_access_code && (
+                  <div className="mt-3 p-2 bg-gray-50 rounded-lg">
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase mb-0.5">Code / Access</label>
+                    <p className="text-sm font-bold text-[#1d283a] select-all">{mission.delivery_access_code}</p>
+                  </div>
+                )}
               </div>
             </div>
           </details>
@@ -399,50 +395,61 @@ export default function MissionDetails() {
                 <h3 className="font-bold uppercase text-xs tracking-wider">Détails de la mission</h3>
               </div>
             </summary>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2.5 bg-gray-50 rounded-xl">
                   <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Véhicule</p>
                   <p className="text-sm font-semibold capitalize">{mission.vehicle_type || "Standard"}</p>
                 </div>
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2.5 bg-gray-50 rounded-xl">
                   <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Formule</p>
                   <p className="text-sm font-semibold capitalize text-red-500">{mission.service_level || "Standard"}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2.5 bg-gray-50 rounded-xl">
                   <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Type de colis</p>
                   <p className="text-sm font-semibold capitalize">{mission.package_type || "Colis"}</p>
                 </div>
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2.5 bg-gray-50 rounded-xl">
                   <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Poids</p>
                   <p className="text-sm font-semibold">{mission.weight ? `${mission.weight} kg` : "—"}</p>
                 </div>
               </div>
               {mission.package_description && (
-                <div className="p-2 bg-gray-50 rounded-lg">
+                <div className="p-2.5 bg-gray-50 rounded-xl">
                   <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Description</p>
                   <p className="text-sm font-semibold">{mission.package_description}</p>
                 </div>
               )}
               {mission.notes && (
-                <div className="col-span-2 mt-2">
-                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-amber-500">📝</span>
-                      <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Instructions Dispatch</p>
+                <div className="mt-2">
+                  <div className="p-4 bg-slate-900 rounded-2xl shadow-lg border border-slate-800">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                        <span className="text-blue-400 text-lg">📝</span>
+                      </div>
+                      <p className="text-xs font-black text-white uppercase tracking-[0.2em]">Instructions Dispatch</p>
                     </div>
                     <div className="space-y-2">
                       {mission.notes.split('|').map((notePart, index) => {
                         const trimmed = notePart.trim();
-                        // Filter out empty looking keys like "Contact:" or "Code:" and specific useless headers
-                        if (!trimmed || trimmed === "." || trimmed.endsWith(":") || trimmed.startsWith("Dimensions") || trimmed.startsWith("Dims")) return null;
+                        // 1. Remove empty or separator parts
+                        if (!trimmed || trimmed === "." || trimmed.endsWith(":")) return null;
+
+                        // 2. Filter out specific headers
+                        if (trimmed.startsWith("Dimensions") || trimmed.startsWith("Dims") || trimmed.startsWith("Tél")) return null;
+
+                        // 3. Regex to detect phone numbers (at least 6 digits) and hide them
+                        const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
+                        const genericPhoneRegex = /\b\d{6,}\b/g;
+
+                        if (phoneRegex.test(trimmed) || genericPhoneRegex.test(trimmed)) return null;
 
                         return (
-                          <div key={index} className="bg-white px-3 py-2 rounded-lg text-sm font-medium text-slate-700 shadow-sm border border-amber-100/50 flex items-start gap-2">
-                            <span className="text-amber-400 mt-0.5">•</span>
-                            <span>{trimmed}</span>
+                          <div key={index} className="bg-slate-800/50 px-4 py-3 rounded-xl text-sm font-medium text-slate-100 flex items-start gap-3 border border-slate-700/50">
+                            <span className="text-blue-500 mt-1 h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                            <span className="leading-relaxed">{trimmed}</span>
                           </div>
                         );
                       })}
