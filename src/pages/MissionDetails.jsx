@@ -183,29 +183,51 @@ export default function MissionDetails() {
     });
   };
 
-  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ...")
+  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ..." ou "Instructions: ... / ...")
   const { pickupInstructions, deliveryInstructions } = useMemo(() => {
     if (!mission?.notes) return { pickupInstructions: null, deliveryInstructions: null };
-    const parts = mission.notes.split('|');
+
     let p = null;
     let d = null;
-    parts.forEach(part => {
-      const trimmed = part.trim();
-      if (trimmed.toLowerCase().includes('enlèvement:')) {
-        p = trimmed.split(/enlèvement:/i)[1]?.trim();
-      } else if (trimmed.toLowerCase().includes('livraison:')) {
-        d = trimmed.split(/livraison:/i)[1]?.trim();
+
+    const notes = mission.notes;
+
+    // Format 1: "Enlèvement: ... | Livraison: ..."
+    if (notes.toLowerCase().includes('enlèvement:') || notes.toLowerCase().includes('livraison:')) {
+      const parts = notes.split('|');
+      parts.forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed.toLowerCase().includes('enlèvement:')) {
+          p = trimmed.split(/enlèvement:/i)[1]?.trim();
+        } else if (trimmed.toLowerCase().includes('livraison:')) {
+          d = trimmed.split(/livraison:/i)[1]?.trim();
+        }
+      });
+    }
+    // Format 2: "Instructions: ... / ..."
+    else if (notes.toLowerCase().includes('instructions:')) {
+      const match = notes.match(/Instructions:\s*(.*?)(?:\.|$)/i);
+      if (match) {
+        const fullInstructions = match[1].trim();
+        if (fullInstructions.includes('/')) {
+          const split = fullInstructions.split('/');
+          p = split[0]?.trim();
+          d = split[1]?.trim();
+        } else {
+          p = fullInstructions;
+        }
       }
-    });
+    }
 
     // Filtre phone/dimensions/etc.
     const filter = (text) => {
-      if (!text || text === "." || text.endsWith(":")) return null;
+      const t = text?.trim();
+      if (!t || t === "." || t === "—" || t.endsWith(":")) return null;
       const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
       const genericPhoneRegex = /\b\d{6,}\b/g;
-      if (phoneRegex.test(text) || genericPhoneRegex.test(text)) return null;
-      if (text.startsWith("Dimensions") || text.startsWith("Dims")) return null;
-      return text;
+      if (phoneRegex.test(t) || genericPhoneRegex.test(t)) return null;
+      if (t.startsWith("Dimensions") || t.startsWith("Dims")) return null;
+      return t;
     };
 
     return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
@@ -364,10 +386,17 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
-                {pickupInstructions && (
+                {(mission.pickup_access_code || pickupInstructions) && (
                   <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-lg">
                     <label className="block text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1.5">Instructions Enlèvement</label>
-                    <p className="text-sm font-medium text-slate-100 leading-relaxed">{pickupInstructions}</p>
+                    <div className="space-y-1">
+                      {mission.pickup_access_code && (
+                        <p className="text-sm font-bold text-white mb-1"><span className="text-blue-400">CODE / ACCÈS:</span> {mission.pickup_access_code}</p>
+                      )}
+                      {pickupInstructions && (
+                        <p className="text-sm font-medium text-slate-100 leading-relaxed">{pickupInstructions}</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -406,10 +435,17 @@ export default function MissionDetails() {
                     </button>
                   </div>
                 </div>
-                {deliveryInstructions && (
+                {(mission.delivery_access_code || deliveryInstructions) && (
                   <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 shadow-lg">
                     <label className="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1.5">Instructions Livraison</label>
-                    <p className="text-sm font-medium text-slate-100 leading-relaxed">{deliveryInstructions}</p>
+                    <div className="space-y-1">
+                      {mission.delivery_access_code && (
+                        <p className="text-sm font-bold text-white mb-1"><span className="text-emerald-400">CODE / ACCÈS:</span> {mission.delivery_access_code}</p>
+                      )}
+                      {deliveryInstructions && (
+                        <p className="text-sm font-medium text-slate-100 leading-relaxed">{deliveryInstructions}</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
