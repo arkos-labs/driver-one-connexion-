@@ -192,29 +192,39 @@ export default function MissionDetails() {
 
     const notes = mission.notes;
 
-    // Format 1: "Enlèvement: ... | Livraison: ..."
+    // Format 1: "Enlèvement: ... | Livraison: ..." (OU sans le pipe)
     if (notes.toLowerCase().includes('enlèvement:') || notes.toLowerCase().includes('livraison:')) {
-      const parts = notes.split('|');
+      const parts = notes.includes('|') ? notes.split('|') : [notes];
       parts.forEach(part => {
         const trimmed = part.trim();
         if (trimmed.toLowerCase().includes('enlèvement:')) {
-          p = trimmed.split(/enlèvement:/i)[1]?.trim();
-        } else if (trimmed.toLowerCase().includes('livraison:')) {
-          d = trimmed.split(/livraison:/i)[1]?.trim();
+          // Extraction plus robuste : on prend tout jusqu'à "Livraison:" ou la fin (si pas de pipe)
+          const pMatch = trimmed.match(/enlèvement:\s*(.*?)(?=livraison:|$)/i);
+          if (pMatch) p = pMatch[1].trim();
+        }
+        if (trimmed.toLowerCase().includes('livraison:')) {
+          const dMatch = trimmed.match(/livraison:\s*(.*)/i);
+          if (dMatch) d = dMatch[1].trim();
         }
       });
     }
-    // Format 2: "Instructions: ... / ..."
+    // Format 2: "Instructions: ... / ..." (Format Guest/Client)
     else if (notes.toLowerCase().includes('instructions:')) {
-      const match = notes.match(/Instructions:\s*(.*?)(?:\.|$)/i);
+      // On prend tout jusqu'au prochain champ identifié (Email Client, Phone, Billing) ou la fin
+      const match = notes.match(/Instructions:\s*(.*?)(?=Email Client:|Phone:|Billing:|Email:|$)/i)
+        || notes.match(/Instructions:\s*(.*)/i); // Fallback plus gourmand
+
       if (match) {
-        const fullInstructions = match[1].trim();
-        if (fullInstructions.includes('/')) {
-          const split = fullInstructions.split('/');
+        const full = match[1].trim();
+        // On nettoie un éventuel point final traînant avant le champ suivant
+        const cleanFull = full.replace(/\.$/, "");
+
+        if (cleanFull.includes('/')) {
+          const split = cleanFull.split('/');
           p = split[0]?.trim();
           d = split[1]?.trim();
         } else {
-          p = fullInstructions;
+          p = cleanFull;
         }
       }
     }
