@@ -183,14 +183,30 @@ export default function MissionDetails() {
     });
   };
 
-  // Extraction des instructions depuis les notes (format: "Enlèvement: ... | Livraison: ..." ou "Instructions: ... / ...")
+  // Extraction des instructions depuis la mission (colonnes dédiées si dispo) puis fallback sur notes
   const { pickupInstructions, deliveryInstructions } = useMemo(() => {
-    if (!mission?.notes) return { pickupInstructions: null, deliveryInstructions: null };
-
     let p = null;
     let d = null;
 
-    const notes = mission.notes;
+    const filter = (text) => {
+      const t = text?.trim();
+      if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
+      // On ne masque que si c'est EXACTEMENT un numéro de téléphone ou EXACTEMENT "Dimensions: ..." sans autre texte
+      const isOnlyPhone = /^(\+33|0)[1-9](\s*\d{2}){4}$/.test(t.replace(/[\s.-]/g, ""));
+      if (isOnlyPhone) return null;
+      if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
+      return t;
+    };
+
+    // 1) Colonnes dédiées (si présentes en base)
+    if (mission?.pickup_instructions || mission?.delivery_instructions) {
+      p = mission?.pickup_instructions || null;
+      d = mission?.delivery_instructions || null;
+    }
+
+    // 2) Fallback: parsing des notes
+    const notes = mission?.notes;
+    if (!notes) return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
 
     // Format 1: "Enlèvement: ... | Livraison: ..." (OU avec "Dispatch:")
     if (/enlèvement\s*:|livraison\s*:|dispatch\s*:/i.test(notes)) {
@@ -236,19 +252,8 @@ export default function MissionDetails() {
       }
     }
 
-    // Filtre phone/dimensions/etc.
-    const filter = (text) => {
-      const t = text?.trim();
-      if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
-      // On ne masque que si c'est EXACTEMENT un numéro de téléphone ou EXACTEMENT "Dimensions: ..." sans autre texte
-      const isOnlyPhone = /^(\+33|0)[1-9](\s*\d{2}){4}$/.test(t.replace(/[\s.-]/g, ""));
-      if (isOnlyPhone) return null;
-      if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
-      return t;
-    };
-
     return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
-  }, [mission?.notes]);
+  }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions]);
 
   if (loading) return <div className="p-4">Chargement...</div>;
 
