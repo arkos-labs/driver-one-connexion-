@@ -192,31 +192,38 @@ export default function MissionDetails() {
 
     const notes = mission.notes;
 
-    // Format 1: "Enlèvement: ... | Livraison: ..." (OU sans le pipe)
-    if (notes.toLowerCase().includes('enlèvement:') || notes.toLowerCase().includes('livraison:')) {
+    // Format 1: "Enlèvement: ... | Livraison: ..." (OU avec "Dispatch:")
+    if (/enlèvement\s*:|livraison\s*:|dispatch\s*:/i.test(notes)) {
       const parts = notes.includes('|') ? notes.split('|') : [notes];
       parts.forEach(part => {
         const trimmed = part.trim();
-        if (trimmed.toLowerCase().includes('enlèvement:')) {
-          // Extraction plus robuste : on prend tout jusqu'à "Livraison:" ou la fin (si pas de pipe)
-          const pMatch = trimmed.match(/enlèvement:\s*(.*?)(?=livraison:|$)/i);
-          if (pMatch) p = pMatch[1].trim();
+        // Enlèvement
+        if (/enlèvement\s*:/i.test(trimmed)) {
+          const m = trimmed.match(/enlèvement\s*:\s*(.*?)(?=livraison:|dispatch:|$)/i);
+          if (m) p = m[1].trim();
         }
-        if (trimmed.toLowerCase().includes('livraison:')) {
-          const dMatch = trimmed.match(/livraison:\s*(.*)/i);
-          if (dMatch) d = dMatch[1].trim();
+        // Livraison
+        if (/livraison\s*:/i.test(trimmed)) {
+          const m = trimmed.match(/livraison\s*:\s*(.*?)(?=enlèvement:|dispatch:|$)/i);
+          if (m) d = m[1].trim();
+        }
+        // Dispatch (fallback pour les deux ou p selon le contenu)
+        if (/dispatch\s*:/i.test(trimmed)) {
+          const m = trimmed.match(/dispatch\s*:\s*(.*)/i);
+          if (m) {
+            const content = m[1].trim();
+            if (!p) p = content; // On le met en enlèvement par défaut si vide
+            else if (!d) d = content; // Sinon en livraison
+          }
         }
       });
     }
     // Format 2: "Instructions: ... / ..." (Format Guest/Client)
-    else if (notes.toLowerCase().includes('instructions:')) {
-      // On prend tout jusqu'au prochain champ identifié (Email Client, Phone, Billing) ou la fin
-      const match = notes.match(/Instructions:\s*(.*?)(?=Email Client:|Phone:|Billing:|Email:|$)/i)
-        || notes.match(/Instructions:\s*(.*)/i); // Fallback plus gourmand
+    else if (/instructions\s*:/i.test(notes)) {
+      const match = notes.match(/instructions\s*:\s*(.*?)(?=Email Client:|Phone:|Billing:|Email:|$)/is);
 
       if (match) {
         const full = match[1].trim();
-        // On nettoie un éventuel point final traînant avant le champ suivant
         const cleanFull = full.replace(/\.$/, "");
 
         if (cleanFull.includes('/')) {
@@ -232,11 +239,11 @@ export default function MissionDetails() {
     // Filtre phone/dimensions/etc.
     const filter = (text) => {
       const t = text?.trim();
-      if (!t || t === "." || t === "—" || t.endsWith(":")) return null;
-      const phoneRegex = /(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g;
-      const genericPhoneRegex = /\b\d{6,}\b/g;
-      if (phoneRegex.test(t) || genericPhoneRegex.test(t)) return null;
-      if (t.startsWith("Dimensions") || t.startsWith("Dims")) return null;
+      if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
+      // On ne masque que si c'est EXACTEMENT un numéro de téléphone ou EXACTEMENT "Dimensions: ..." sans autre texte
+      const isOnlyPhone = /^(\+33|0)[1-9](\s*\d{2}){4}$/.test(t.replace(/[\s.-]/g, ""));
+      if (isOnlyPhone) return null;
+      if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
       return t;
     };
 
@@ -366,7 +373,7 @@ export default function MissionDetails() {
         </section>
 
         <section className="px-4 space-y-3">
-          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={mission.status === "assigned" || mission.status === "accepted"}>
+          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={(mission.status === "assigned" || mission.status === "accepted") || !!pickupInstructions}>
             <summary className="list-none cursor-pointer">
               <div className="p-3">
                 <div className="flex items-center gap-2">
@@ -413,7 +420,7 @@ export default function MissionDetails() {
             </div>
           </details>
 
-          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={mission.status !== "assigned" && mission.status !== "accepted"}>
+          <details className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100" open={(mission.status !== "assigned" && mission.status !== "accepted") || !!deliveryInstructions}>
             <summary className="list-none cursor-pointer">
               <div className="p-3">
                 <div className="flex items-center gap-2">
