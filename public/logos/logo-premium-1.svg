@@ -1,0 +1,22 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B0F1A"/>
+      <stop offset="100%" stop-color="#1D283A"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5E19E"/>
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#0B0F1A" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="url(#g1)"/>
+  <circle cx="512" cy="512" r="330" fill="none" stroke="url(#g2)" stroke-width="28"/>
+  <path d="M330 610V414c0-20 16-36 36-36h224c20 0 36 16 36 36v196c0 20-16 36-36 36H366c-20 0-36-16-36-36Z" fill="url(#g2)" filter="url(#shadow)"/>
+  <path d="M394 554l130-150 106 128" stroke="#0B0F1A" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="458" cy="482" r="18" fill="#0B0F1A"/>
+  <text x="512" y="720" text-anchor="middle" fill="#F7E7B0" font-size="64" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="6">DRIVE ONE</text>
+  <text x="512" y="792" text-anchor="middle" fill="#CBB977" font-size="28" font-family="Inter, system-ui, sans-serif" font-weight="600" letter-spacing="5">CONNEXION</text>
+</svg>
