@@ -233,10 +233,26 @@ export default function MissionDetails() {
           }
         }
       });
+
+      // Si on n'a rien trouvé dans ce format, on tente le format Instructions
+      if (!p && !d && /instructions\s*:/i.test(notes)) {
+        const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
+        if (match) {
+          const full = match[1].trim();
+          const cleanFull = full.replace(/\.$/, "");
+          if (cleanFull.includes('/')) {
+            const split = cleanFull.split('/');
+            p = split[0]?.trim();
+            d = split[1]?.trim();
+          } else {
+            p = cleanFull;
+          }
+        }
+      }
     }
     // Format 2: "Instructions: ... / ..." (Format Guest/Client)
     else if (/instructions\s*:/i.test(notes)) {
-      const match = notes.match(/instructions\s*:\s*(.*?)(?=Email Client:|Phone:|Billing:|Email:|$)/is);
+      const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
 
       if (match) {
         const full = match[1].trim();
