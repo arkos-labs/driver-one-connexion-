@@ -13,6 +13,7 @@
   margin: 0 auto;
   background: #f6f7f7;
   box-shadow: 0 0 0 1px #e5e7eb;
+  overflow-x: hidden;
 }
 
 @media (max-width: 480px) {
@@ -42,9 +43,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }
@@ -53,6 +56,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
