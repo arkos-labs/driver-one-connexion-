@@ -9,8 +9,9 @@ function statusTitle(status) {
       return "En attente";
     case "assigned":
       return "Étape 1 : À Accepter";
-    case "accepted":
+    case "driver_accepted":
       return "Étape 1 : En route vers Enlèvement";
+    case "in_progress":
     case "picked_up":
       return "Étape 2 : En cours de livraison";
     case "delivered":
@@ -23,16 +24,16 @@ function statusTitle(status) {
 function statusColor(status) {
   if (status === "pending") return "text-slate-600 border-slate-200 bg-slate-50";
   if (status === "assigned") return "text-blue-600 border-blue-200 bg-blue-50";
-  if (status === "accepted") return "text-indigo-600 border-indigo-200 bg-indigo-50";
-  if (status === "picked_up") return "text-amber-700 border-amber-200 bg-amber-50";
+  if (status === "driver_accepted" || status === "accepted") return "text-indigo-600 border-indigo-200 bg-indigo-50";
+  if (status === "picked_up" || status === "in_progress") return "text-amber-700 border-amber-200 bg-amber-50";
   if (status === "delivered") return "text-emerald-700 border-emerald-200 bg-emerald-50";
   return "text-slate-600 border-slate-200 bg-slate-50";
 }
 
 function statusCard(status) {
   if (status === "assigned") return "bg-blue-50 ring-1 ring-blue-100";
-  if (status === "accepted") return "bg-indigo-50 ring-1 ring-indigo-100";
-  if (status === "picked_up") return "bg-amber-50 ring-1 ring-amber-100";
+  if (status === "driver_accepted" || status === "accepted") return "bg-indigo-50 ring-1 ring-indigo-100";
+  if (status === "picked_up" || status === "in_progress") return "bg-amber-50 ring-1 ring-amber-100";
   return "bg-white";
 }
 

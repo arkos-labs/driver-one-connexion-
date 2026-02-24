@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
+import { notifyPickupDone, notifyDelivered, notifyDriverAccepted, notifyDriverDeclined } from "../lib/telegram";
 
 function openMaps(address) {
   const query = encodeURIComponent(address || "");
@@ -29,8 +30,9 @@ function statusTitle(status) {
   switch (status) {
     case "assigned":
       return "Étape 1 : À Accepter";
-    case "accepted":
+    case "driver_accepted":
       return "Étape 1 : En route vers Enlèvement";
+    case "in_progress":
     case "picked_up":
       return "Étape 2 : En cours de livraison";
     case "delivered":
@@ -63,6 +65,7 @@ export default function MissionDetails() {
   const [saving, setSaving] = useState(false);
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [pendingAction, setPendingAction] = useState(null); // "DELIVER" | "PROOF"
+  const [driverName, setDriverName] = useState("Chauffeur");
 
   const [pickupOpen, setPickupOpen] = useState(true);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
@@ -79,14 +82,24 @@ export default function MissionDetails() {
 
   useEffect(() => {
     fetchMission();
+    fetchDriverName();
   }, [id]);
+
+  const fetchDriverName = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('details').eq('id', user.id).single();
+      const name = profile?.details?.full_name || profile?.details?.first_name || user.email?.split('@')[0] || "Chauffeur";
+      setDriverName(name);
+    }
+  };
 
   useEffect(() => {
     if (!mission?.status) return;
-    if (mission.status === "assigned" || mission.status === "accepted") {
+    if (mission.status === "assigned" || mission.status === "accepted" || mission.status === "driver_accepted") {
       setPickupOpen(true);
       setDeliveryOpen(false);
-    } else if (mission.status === "picked_up" || mission.status === "delivered") {
+    } else if (mission.status === "picked_up" || mission.status === "in_progress" || mission.status === "delivered") {
       setPickupOpen(false);
       setDeliveryOpen(true);
     }
@@ -162,8 +175,15 @@ export default function MissionDetails() {
       .update(patch)
       .eq('id', id);
 
-    if (!error) {
+    if (error) {
+      console.error("Update error:", error);
+      alert("Erreur lors de la mise à jour: " + error.message);
+    } else {
+      console.log("Update success:", patch);
       await fetchMission();
+      // On force une petite latence pour être sûr que le fetch a fini avant de libérer le saving
+      setTimeout(() => setSaving(false), 500);
+      return;
     }
     setSaving(false);
   };
@@ -180,27 +200,52 @@ export default function MissionDetails() {
       status: "delivered",
       updated_at: now
     });
+    // Notification Telegram
+    notifyDelivered(mission, driverName);
     navigate("/missions");
   };
 
   const handleAccept = async () => {
     const now = new Date().toISOString();
+    console.log("Accepting mission...");
     await updateOrder({
-      status: "accepted",
-      updated_at: now
+      status: "driver_accepted",
+      updated_at: now,
+      driver_accepted_at: now
     });
+    // Notification Telegram
+    notifyDriverAccepted(mission, driverName);
+    alert("Mission acceptée !");
   };
 
   const handlePickup = async () => {
     const now = new Date().toISOString();
     await updateOrder({
-      status: "picked_up",
+      status: "in_progress",
       updated_at: now,
       picked_up_at: now
     });
+    // Notification Telegram
+    notifyPickupDone(mission, driverName);
     // Ouvre livraison immédiatement sans attendre le refresh
     setPickupOpen(false);
     setDeliveryOpen(true);
+  };
+
+  const handleDecline = async () => {
+    if (!confirm("Êtes-vous sûr de vouloir vous désister de cette mission ?")) return;
+
+    const now = new Date().toISOString();
+    await updateOrder({
+      status: "accepted", // Reverts to admin stack
+      driver_id: null,
+      updated_at: now
+    });
+
+    // Notification Telegram
+    notifyDriverDeclined(mission, driverName);
+    alert("Mission retirée.");
+    navigate("/missions");
   };
 
   // Extraction des instructions depuis la mission (colonnes dédiées si dispo) puis fallback sur notes
@@ -563,21 +608,13 @@ export default function MissionDetails() {
         <section className="p-4 py-3 space-y-2">
           {mission.status !== "delivered" && (
             <>
-              {mission.status === "assigned" && (
-                <button
-                  type="button"
-                  onClick={handleAccept}
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm"
-                >
-                  Accepter la mission
-                </button>
-              )}
-
-              {pickupStages.includes(mission.status) && mission.status !== "assigned" && (
+              {/* Bouton Enlèvement : Prioritaire car la mission est forcée/automatiquement acceptée */}
+              {pickupStages.includes(mission.status) && mission.status !== "in_progress" && (
                 <button
                   type="button"
                   onClick={handlePickup}
-                  className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm"
+                  disabled={saving}
+                  className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
                   Confirmer l'Enlèvement
                 </button>
@@ -590,7 +627,8 @@ export default function MissionDetails() {
                     setPendingAction("DELIVER");
                     fileRef.current?.click();
                   }}
-                  className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20"
+                  disabled={saving}
+                  className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50"
                 >
                   Valider la Livraison
                 </button>
@@ -626,6 +664,17 @@ export default function MissionDetails() {
                 }}
               />
             </>
+          )}
+
+          {mission.status !== "delivered" && (mission.status === "assigned" || mission.status === "driver_accepted") && (
+            <button
+              type="button"
+              onClick={handleDecline}
+              disabled={saving}
+              className="w-full bg-red-50 text-red-600 border border-red-100 py-3 rounded-xl font-bold text-sm mt-4 hover:bg-red-100 transition-colors"
+            >
+              Refuser la mission / Me désister
+            </button>
           )}
 
           <Link to="/missions" className="w-full py-1 text-gray-500 font-semibold text-xs flex items-center justify-center gap-1">
