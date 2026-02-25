@@ -243,6 +243,7 @@ export default function MissionDetails() {
     await updateOrder({
       status: "pending_acceptance", // Reverts to admin stack
       driver_id: null,
+      refused_by_driver: driverName || null,
       updated_at: now
     });
 
