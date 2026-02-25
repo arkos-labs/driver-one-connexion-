@@ -211,9 +211,15 @@ export default function MissionDetails() {
     const now = new Date().toISOString();
     console.log("Accepting mission...");
     const driverId = currentUserId || (await supabase.auth.getUser())?.data?.user?.id;
+
+    if (!driverId) {
+      alert("Session chauffeur introuvable. Reconnectez-vous.");
+      return;
+    }
+
     await updateOrder({
       status: "driver_accepted",
-      driver_id: driverId || mission?.driver_id || null,
+      driver_id: driverId,
       updated_at: now,
       driver_accepted_at: now
     });
@@ -676,7 +682,7 @@ export default function MissionDetails() {
                 <button
                   type="button"
                   onClick={handleAccept}
-                  disabled={saving}
+                  disabled={saving || !currentUserId}
                   className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors"
                 >
                   Accepter la mission
