@@ -241,7 +241,7 @@ export default function MissionDetails() {
 
     const now = new Date().toISOString();
     await updateOrder({
-      status: "accepted", // Reverts to admin stack
+      status: "pending_acceptance", // Reverts to admin stack
       driver_id: null,
       updated_at: now
     });
