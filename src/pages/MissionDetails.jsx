@@ -202,8 +202,6 @@ export default function MissionDetails() {
       status: "delivered",
       updated_at: now
     });
-    console.log("🔔 Notification Delivery:", mission.id);
-    notifyDelivered(mission, driverName);
     navigate("/missions");
   };
 
@@ -223,8 +221,6 @@ export default function MissionDetails() {
       updated_at: now,
       driver_accepted_at: now
     });
-    // Notification Telegram
-    notifyDriverAccepted(mission, driverName);
     alert("Mission acceptée !");
   };
 
@@ -235,8 +231,6 @@ export default function MissionDetails() {
       updated_at: now,
       picked_up_at: now
     });
-    console.log("🔔 Notification Pickup:", mission.id);
-    notifyPickupDone(mission, driverName);
     // Ouvre livraison immédiatement sans attendre le refresh
     setPickupOpen(false);
     setDeliveryOpen(true);
@@ -252,8 +246,6 @@ export default function MissionDetails() {
       updated_at: now
     });
 
-    // Notification Telegram
-    notifyDriverDeclined(mission, driverName);
     alert("Mission retirée.");
     navigate("/missions");
   };
@@ -678,7 +670,7 @@ export default function MissionDetails() {
 
           {mission.status !== "delivered" && (mission.status === "assigned" || mission.status === "driver_accepted") && (
             <div className="mt-4 grid gap-3">
-              {(!mission.driver_id || mission.driver_id === currentUserId) && (
+              {mission.status === "assigned" && (!mission.driver_id || mission.driver_id === currentUserId) && (
                 <button
                   type="button"
                   onClick={handleAccept}
