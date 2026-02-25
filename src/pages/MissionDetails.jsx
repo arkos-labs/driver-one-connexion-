@@ -66,6 +66,7 @@ export default function MissionDetails() {
   const [pendingPhoto, setPendingPhoto] = useState(null);
   const [pendingAction, setPendingAction] = useState(null); // "DELIVER" | "PROOF"
   const [driverName, setDriverName] = useState("Chauffeur");
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   const [pickupOpen, setPickupOpen] = useState(true);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
@@ -88,6 +89,7 @@ export default function MissionDetails() {
   const fetchDriverName = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      setCurrentUserId(user.id);
       const { data: profile } = await supabase.from('profiles').select('details').eq('id', user.id).single();
       const name = profile?.details?.full_name || profile?.details?.first_name || user.email?.split('@')[0] || "Chauffeur";
       setDriverName(name);
@@ -208,8 +210,10 @@ export default function MissionDetails() {
   const handleAccept = async () => {
     const now = new Date().toISOString();
     console.log("Accepting mission...");
+    const driverId = currentUserId || (await supabase.auth.getUser())?.data?.user?.id;
     await updateOrder({
       status: "driver_accepted",
+      driver_id: driverId || mission?.driver_id || null,
       updated_at: now,
       driver_accepted_at: now
     });
@@ -668,7 +672,7 @@ export default function MissionDetails() {
 
           {mission.status !== "delivered" && (mission.status === "assigned" || mission.status === "driver_accepted") && (
             <div className="mt-4 grid gap-3">
-              {mission.status === "assigned" && (
+              {(!mission.driver_id || mission.driver_id === currentUserId) && (
                 <button
                   type="button"
                   onClick={handleAccept}
