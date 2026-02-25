@@ -200,7 +200,7 @@ export default function MissionDetails() {
       status: "delivered",
       updated_at: now
     });
-    // Notification Telegram
+    console.log("🔔 Notification Delivery:", mission.id);
     notifyDelivered(mission, driverName);
     navigate("/missions");
   };
@@ -225,7 +225,7 @@ export default function MissionDetails() {
       updated_at: now,
       picked_up_at: now
     });
-    // Notification Telegram
+    console.log("🔔 Notification Pickup:", mission.id);
     notifyPickupDone(mission, driverName);
     // Ouvre livraison immédiatement sans attendre le refresh
     setPickupOpen(false);
@@ -667,14 +667,26 @@ export default function MissionDetails() {
           )}
 
           {mission.status !== "delivered" && (mission.status === "assigned" || mission.status === "driver_accepted") && (
-            <button
-              type="button"
-              onClick={handleDecline}
-              disabled={saving}
-              className="w-full bg-red-50 text-red-600 border border-red-100 py-3 rounded-xl font-bold text-sm mt-4 hover:bg-red-100 transition-colors"
-            >
-              Refuser la mission / Me désister
-            </button>
+            <div className="mt-4 grid gap-3">
+              {mission.status === "assigned" && (
+                <button
+                  type="button"
+                  onClick={handleAccept}
+                  disabled={saving}
+                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors"
+                >
+                  Accepter la mission
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDecline}
+                disabled={saving}
+                className="w-full bg-red-50 text-red-600 border border-red-100 py-3 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
+              >
+                Refuser la mission / Me désister
+              </button>
+            </div>
           )}
 
           <Link to="/missions" className="w-full py-1 text-gray-500 font-semibold text-xs flex items-center justify-center gap-1">
