@@ -668,18 +668,16 @@ export default function MissionDetails() {
             </>
           )}
 
-          {mission.status !== "delivered" && (mission.status === "assigned" || mission.status === "driver_accepted") && (
+          {mission.status !== "delivered" && (mission.status === "assigned" || (mission.status === "driver_accepted" && !mission.driver_id)) && (
             <div className="mt-4 grid gap-3">
-              {mission.status === "assigned" && (!mission.driver_id || mission.driver_id === currentUserId) && (
-                <button
-                  type="button"
-                  onClick={handleAccept}
-                  disabled={saving || !currentUserId}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors"
-                >
-                  Accepter la mission
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={handleAccept}
+                disabled={saving || !currentUserId}
+                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors"
+              >
+                Accepter la mission
+              </button>
               <button
                 type="button"
                 onClick={handleDecline}
