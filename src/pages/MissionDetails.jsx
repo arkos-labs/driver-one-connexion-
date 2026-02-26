@@ -241,7 +241,7 @@ export default function MissionDetails() {
 
     const now = new Date().toISOString();
     await updateOrder({
-      status: "pending_acceptance", // Reverts to admin stack
+      status: "assigned", // Retour en colonne Dispatch
       driver_id: null,
       refused_by_driver: driverName || null,
       updated_at: now
