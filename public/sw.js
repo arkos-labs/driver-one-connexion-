@@ -56,6 +56,22 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
+self.addEventListener('push', function (event) {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'Nouvelle course';
+  const options = {
+    body: data.body || 'Une nouvelle mission est disponible.',
+    icon: data.icon || '/vite.svg',
+    badge: data.badge || '/vite.svg',
+    tag: data.tag || 'new-mission',
+    renotify: true,
+    requireInteraction: true,
+    data: { url: data.url || '/missions' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   const url = event.notification.data?.url || '/';

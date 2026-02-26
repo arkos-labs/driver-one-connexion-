@@ -5,6 +5,7 @@ import {
     showPersistentNotification,
     clearMissionNotification
 } from "../lib/notifications";
+import { ensurePushSubscription, removePushSubscription } from "../lib/push";
 
 export default function MissionMonitor() {
     const activeMissionsRef = useRef(0);
@@ -37,12 +38,14 @@ export default function MissionMonitor() {
             subsRef.current = { orderChannel: null, profileChannel: null, pollInterval: null };
             activeMissionsRef.current = 0;
             clearMissionNotification();
+            await removePushSubscription();
         };
 
         const startMonitoring = async (user) => {
             if (!user) return;
             // cleanup existing just in case
             await stopMonitoring();
+            await ensurePushSubscription(user.id);
 
             // --- A. Order Monitor (Missions) ---
             const checkMissions = async () => {
