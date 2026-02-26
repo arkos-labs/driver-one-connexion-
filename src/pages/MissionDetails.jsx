@@ -241,7 +241,7 @@ export default function MissionDetails() {
 
     const now = new Date().toISOString();
     await updateOrder({
-      status: "assigned", // Retour en colonne Dispatch
+      status: "accepted", // Retour au statut initial avant dispatch (Indigo: À DISPATCHER)
       driver_id: null,
       refused_by_driver: driverName || null,
       updated_at: now
