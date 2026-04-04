@@ -34,8 +34,11 @@ export default function MissionMonitor() {
             if (subsRef.current.orderChannel) await supabase.removeChannel(subsRef.current.orderChannel);
             if (subsRef.current.profileChannel) await supabase.removeChannel(subsRef.current.profileChannel);
             if (subsRef.current.pollInterval) clearInterval(subsRef.current.pollInterval);
+            if (subsRef.current.visibilityListener) {
+                document.removeEventListener('visibilitychange', subsRef.current.visibilityListener);
+            }
 
-            subsRef.current = { orderChannel: null, profileChannel: null, pollInterval: null };
+            subsRef.current = { orderChannel: null, profileChannel: null, pollInterval: null, visibilityListener: null };
             activeMissionsRef.current = 0;
             clearMissionNotification();
             await removePushSubscription();
@@ -91,14 +94,27 @@ export default function MissionMonitor() {
                 .on('postgres_changes', {
                     event: '*',
                     schema: 'public',
-                    table: 'orders',
-                    filter: `driver_id=eq.${user.id}` // Optimized filter
+                    table: 'orders'
+                    // Removed filter for robustness, RLS handles security
                 }, () => {
+                    console.log("[Monitor] Realtime mission change detected");
                     checkMissions();
                 })
-                .subscribe();
+                .subscribe((status) => {
+                    console.log("[Monitor] Order Channel Status:", status);
+                });
 
             subsRef.current.orderChannel = orderChannel;
+
+            // Visibility change sync
+            const handleVisibilityChange = () => {
+                if (document.visibilityState === 'visible') {
+                    console.log("[Monitor] App visible, re-checking missions...");
+                    checkMissions();
+                }
+            };
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            subsRef.current.visibilityListener = handleVisibilityChange;
 
             // --- B. Profile Status Monitor (Online/Offline) ---
             const handleStatusChange = (newStatus) => {

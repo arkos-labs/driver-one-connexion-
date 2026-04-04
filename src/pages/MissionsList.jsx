@@ -86,6 +86,7 @@ export default function MissionsList() {
   useEffect(() => {
     if (!user) return;
 
+    console.log("Setting up realtime for missions of user:", user.id);
     const channelName = `driver-missions-${user.id}`;
     const channel = supabase
       .channel(channelName)
@@ -94,19 +95,35 @@ export default function MissionsList() {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'orders',
-          filter: `driver_id=eq.${user.id}`
+          table: 'orders'
+          // Removed filter: `driver_id=eq.${user.id}` to be more robust. 
+          // RLS already restricts what the user can see.
         },
         (payload) => {
-          console.log("Realtime mission update:", payload);
+          console.log("Realtime mission event detected:", payload);
           fetchMissions(user);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Missions Realtime Status:", status, "for channel", channelName);
+        if (status === 'SUBSCRIBED') {
+          console.log("Successfully subscribed to realtime updates for missions.");
+        }
+      });
 
     return () => {
+      console.log("Cleaning up realtime channel:", channelName);
       supabase.removeChannel(channel);
     };
+  }, [user]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log("App focused, re-fetching missions...");
+      fetchMissions();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [user]);
 
   const fetchMissions = async (currentUser = user) => {
@@ -117,6 +134,7 @@ export default function MissionsList() {
     }
     if (!u) return;
 
+    setLoading(true);
     const { data, error } = await supabase
       .from('orders')
       .select('*')
@@ -125,7 +143,9 @@ export default function MissionsList() {
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error("Fetch Missions Error:", error);
+    } else if (data) {
       const next = data;
       const nextIds = new Set(next.map(m => m.id));
       const prevIds = prevMissionIdsRef.current;
@@ -153,7 +173,19 @@ export default function MissionsList() {
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />
         </div>
-        <div className="flex items-center gap-2" />
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => fetchMissions()}
+            className="p-2 -mr-2 rounded-xl active:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors"
+            title="Rafraîchir"
+            disabled={loading}
+          >
+            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24"/>
+              <path d="M21 3v9h-9"/>
+            </svg>
+          </button>
+        </div>
       </header>
 
       <button 
