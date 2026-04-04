@@ -76,7 +76,9 @@ export default function AdminPage() {
       .update({ 
         driver_id: driverId,
         status: 'assigned',
-        assigned_at: new Date().toISOString()
+        assigned_at: new Date().toISOString(),
+        viewed_at: null,
+        notification_count: 0
       })
       .eq('id', orderId);
 

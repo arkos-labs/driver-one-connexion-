@@ -146,6 +146,16 @@ export default function MissionDetails() {
     } else {
       setMission(data);
       missionRef.current = data;
+      
+      // Marquer comme vue si non déjà fait
+      if (data.status === 'assigned' && !data.viewed_at) {
+        supabase.from('orders')
+          .update({ viewed_at: new Date().toISOString() })
+          .eq('id', id)
+          .then(({ error }) => {
+            if (error) console.error("Error setting viewed_at:", error);
+          });
+      }
     }
     setLoading(false);
   };
