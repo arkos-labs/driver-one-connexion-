@@ -66,19 +66,33 @@ export default function MissionsList() {
       }
     }
     init();
+  }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channelName = `driver-missions-${user.id}`;
     const channel = supabase
-      .channel(`driver-missions-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        console.log("Mission updated:", payload);
-        fetchMissions(); // State user will be used or re-fetched
-      })
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `driver_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log("Realtime mission update:", payload);
+          fetchMissions(user);
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user]);
 
   const fetchMissions = async (currentUser = user) => {
     let u = currentUser;
