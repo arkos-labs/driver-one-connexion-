@@ -118,17 +118,14 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
-      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center gap-3">
-          {/* menu removed */}
-          <h1 className="text-lg font-bold tracking-tight uppercase">Profil</h1>
-        </div>
-        <div className="absolute left-1/2 top-2 -translate-x-1/2">
+      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3.5 flex items-center justify-between backdrop-blur-md bg-white/90">
+        <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-900">Profil</h1>
+        <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1">
         <div className="mx-4 mt-4 rounded-[26px] border border-slate-200/70 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-xl font-semibold text-white uppercase">
@@ -136,7 +133,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <div className="text-lg font-semibold text-slate-900">{personal.full_name || "Chauffeur"}</div>
-              <div className="text-sm text-slate-500">Chauffeur • {personal.address || "France"}</div>
+              <div className="text-sm text-slate-500">Chauffeur</div>
               <div className={`mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                 ● {isOnline ? "En ligne" : "Hors ligne"}
               </div>
@@ -154,9 +151,6 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between"><span className="text-slate-500">Nom complet</span><span className="font-semibold text-slate-900">{personal.full_name}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Téléphone</span><span className="font-semibold text-slate-900">{personal.phone}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Email</span><span className="font-semibold text-slate-900">{personal.email}</span></div>
-              <div className="flex items-center justify-between"><span className="text-slate-500">Société</span><span className="font-semibold text-slate-900">{personal.company}</span></div>
-              <div className="flex items-center justify-between"><span className="text-slate-500">SIRET</span><span className="font-semibold text-slate-900">{personal.siret}</span></div>
-              <div className="flex items-center justify-between"><span className="text-slate-500">Adresse</span><span className="font-semibold text-slate-900">{personal.address}</span></div>
             </div>
           </div>
 
@@ -191,27 +185,6 @@ export default function ProfilePage() {
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 app-nav">
-        <div className="flex items-center justify-around h-16">
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/missions">
-            <span>📋</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Mission</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/map">
-            <span>🕓</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Historique</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/chat">
-            <span>💬</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tchat</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-[#1d283a]" to="/profile">
-            <span>👤</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Profil</span>
-          </Link>
-        </div>
-        <div className="h-5 bg-white" />
-      </nav>
     </div>
   );
 }

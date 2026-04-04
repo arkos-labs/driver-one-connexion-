@@ -1,8 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
 import { notifyPickupDone, notifyDelivered, notifyDriverAccepted, notifyDriverDeclined } from "../lib/telegram";
+
+const ArrowLeftIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+);
+const HistoryIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+);
+const BoxIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.27 6.96 8.73 5.04 8.73-5.04"/><path d="M12 22.08V12"/></svg>
+);
+const TruckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-5h-7v7Z"/><path d="M16 8h4.5l2.5 3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+);
+const ZapIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m13 2-2 10h3L11 22l2-10h-3l2-10z"/></svg>
+);
+const CameraIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+);
+const CheckIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
+const XCircleIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+);
 
 function openMaps(address) {
   const query = encodeURIComponent(address || "");
@@ -64,7 +89,7 @@ export default function MissionDetails() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pendingPhoto, setPendingPhoto] = useState(null);
-  const [pendingAction, setPendingAction] = useState(null); // "DELIVER" | "PROOF"
+  const [pendingAction, setPendingAction] = useState(null);
   const [driverName, setDriverName] = useState("Chauffeur");
   const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -74,7 +99,6 @@ export default function MissionDetails() {
   const pickupStages = ["assigned", "accepted", "dispatched", "driver_accepted", "arrived_pickup"];
   const deliveryStages = ["picked_up", "in_progress", "on_delivery"];
 
-  // Modal State
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
 
@@ -133,31 +157,23 @@ export default function MissionDetails() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
         (payload) => {
-          console.log("Mission update:", payload);
-
           if (payload.eventType === 'DELETE') {
             setModalMessage("Cette course a été retirée par l'administrateur.");
             setShowModal(true);
           }
           else if (payload.eventType === 'UPDATE') {
             const newMission = payload.new;
-
-            // Check for status cancelled
             if (newMission.status === 'cancelled') {
               setModalMessage("La course a été annulée par l'administrateur.");
               setShowModal(true);
               return;
             }
-
-            // Check for reassignment (driver change)
             const prev = missionRef.current;
             if (prev && newMission.driver_id && newMission.driver_id !== prev.driver_id) {
               setModalMessage("Cette course a été réassignée à un autre chauffeur.");
               setShowModal(true);
               return;
             }
-
-            // If just normal update, refresh data
             setMission(newMission);
             missionRef.current = newMission;
           }
@@ -181,33 +197,73 @@ export default function MissionDetails() {
       console.error("Update error:", error);
       alert("Erreur lors de la mise à jour: " + error.message);
     } else {
-      console.log("Update success:", patch);
       await fetchMission();
-      // On force une petite latence pour être sûr que le fetch a fini avant de libérer le saving
       setTimeout(() => setSaving(false), 500);
       return;
     }
     setSaving(false);
   };
 
-  const savePhoto = (dataUrl, name) => {
-    // TODO: Implement actual photo upload to Supabase Storage
-    console.log("Saving photo (simulated):", name);
-    // For now we just log it. We don't have a photos column in orders table structure seen earlier.
+  const savePhoto = async (dataUrl, name) => {
+    try {
+      setSaving(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utilisateur non connecté");
+
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      
+      const fileExt = name.split('.').pop() || 'jpg';
+      const fileName = `${id}/${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('delivery-photos')
+        .upload(filePath, blob, {
+          contentType: `image/${fileExt}`,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('delivery-photos')
+        .getPublicUrl(filePath);
+
+      const patch = {};
+      if (mission.status === "picked_up" || mission.status === "in_progress") {
+        patch.delivery_photo_url = publicUrl;
+      } else {
+        patch.pickup_photo_url = publicUrl;
+      }
+
+      await updateOrder(patch);
+      return publicUrl;
+    } catch (err) {
+      console.error("Error uploading photo:", err);
+      alert("Erreur lors de l'upload de la photo: " + err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const completeDelivery = async () => {
     const now = new Date().toISOString();
-    await updateOrder({
+    const patch = {
       status: "delivered",
-      updated_at: now
-    });
+      updated_at: now,
+      delivered_at: now
+    };
+    await updateOrder(patch);
+    if (mission) {
+      notifyDelivered({ ...mission, ...patch }, driverName);
+    }
     navigate("/missions");
   };
 
   const handleAccept = async () => {
     const now = new Date().toISOString();
-    console.log("Accepting mission...");
     const driverId = currentUserId || (await supabase.auth.getUser())?.data?.user?.id;
 
     if (!driverId) {
@@ -215,23 +271,31 @@ export default function MissionDetails() {
       return;
     }
 
-    await updateOrder({
+    const patch = {
       status: "driver_accepted",
       driver_id: driverId,
       updated_at: now,
       driver_accepted_at: now
-    });
+    };
+
+    await updateOrder(patch);
+    if (mission) {
+      notifyDriverAccepted({ ...mission, ...patch }, driverName);
+    }
     alert("Mission acceptée !");
   };
 
   const handlePickup = async () => {
     const now = new Date().toISOString();
-    await updateOrder({
+    const patch = {
       status: "in_progress",
       updated_at: now,
       picked_up_at: now
-    });
-    // Ouvre livraison immédiatement sans attendre le refresh
+    };
+    await updateOrder(patch);
+    if (mission) {
+      notifyPickupDone({ ...mission, ...patch }, driverName);
+    }
     setPickupOpen(false);
     setDeliveryOpen(true);
   };
@@ -240,69 +304,64 @@ export default function MissionDetails() {
     if (!confirm("Êtes-vous sûr de vouloir vous désister de cette mission ?")) return;
 
     const now = new Date().toISOString();
-    await updateOrder({
-      status: "accepted", // Retour au statut initial avant dispatch (Indigo: À DISPATCHER)
+    const patch = {
+      status: "assigned",
       driver_id: null,
       refused_by_driver: driverName || null,
+      picked_up_at: null,
+      driver_accepted_at: null,
+      pickup_photo_url: null,
+      delivery_photo_url: null,
+      delivery_signature_url: null,
       updated_at: now
-    });
+    };
 
+    await updateOrder(patch);
+    if (mission) {
+      notifyDriverDeclined({ ...mission, ...patch }, driverName);
+    }
     alert("Mission retirée.");
     navigate("/missions");
   };
 
-  // Extraction des instructions depuis la mission (colonnes dédiées si dispo) puis fallback sur notes
   const { pickupInstructions, deliveryInstructions } = useMemo(() => {
     let p = null;
     let d = null;
-
     const filter = (text) => {
       const t = text?.trim();
       if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
-      // On ne masque que si c'est EXACTEMENT un numéro de téléphone ou EXACTEMENT "Dimensions: ..." sans autre texte
       const isOnlyPhone = /^(\+33|0)[1-9](\s*\d{2}){4}$/.test(t.replace(/[\s.-]/g, ""));
       if (isOnlyPhone) return null;
       if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
       return t;
     };
-
-    // 1) Colonnes dédiées (si présentes en base)
     if (mission?.pickup_instructions || mission?.delivery_instructions) {
       p = mission?.pickup_instructions || null;
       d = mission?.delivery_instructions || null;
     }
-
-    // 2) Fallback: parsing des notes
     const notes = mission?.notes;
     if (!notes) return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
-
-    // Format 1: "Enlèvement: ... | Livraison: ..." (OU avec "Dispatch:")
     if (/enlèvement\s*:|livraison\s*:|dispatch\s*:/i.test(notes)) {
       const parts = notes.includes('|') ? notes.split('|') : [notes];
       parts.forEach(part => {
         const trimmed = part.trim();
-        // Enlèvement
         if (/enlèvement\s*:/i.test(trimmed)) {
           const m = trimmed.match(/enlèvement\s*:\s*(.*?)(?=livraison:|dispatch:|$)/i);
           if (m) p = m[1].trim();
         }
-        // Livraison
         if (/livraison\s*:/i.test(trimmed)) {
           const m = trimmed.match(/livraison\s*:\s*(.*?)(?=enlèvement:|dispatch:|$)/i);
           if (m) d = m[1].trim();
         }
-        // Dispatch (fallback pour les deux ou p selon le contenu)
         if (/dispatch\s*:/i.test(trimmed)) {
           const m = trimmed.match(/dispatch\s*:\s*(.*)/i);
           if (m) {
             const content = m[1].trim();
-            if (!p) p = content; // On le met en enlèvement par défaut si vide
-            else if (!d) d = content; // Sinon en livraison
+            if (!p) p = content;
+            else if (!d) d = content;
           }
         }
       });
-
-      // Si on n'a rien trouvé dans ce format, on tente le format Instructions
       if (!p && !d && /instructions\s*:/i.test(notes)) {
         const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
         if (match) {
@@ -317,15 +376,11 @@ export default function MissionDetails() {
           }
         }
       }
-    }
-    // Format 2: "Instructions: ... / ..." (Format Guest/Client)
-    else if (/instructions\s*:/i.test(notes)) {
+    } else if (/instructions\s*:/i.test(notes)) {
       const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
-
       if (match) {
         const full = match[1].trim();
         const cleanFull = full.replace(/\.$/, "");
-
         if (cleanFull.includes('/')) {
           const split = cleanFull.split('/');
           p = split[0]?.trim();
@@ -335,7 +390,6 @@ export default function MissionDetails() {
         }
       }
     }
-
     return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
   }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions]);
 
@@ -357,11 +411,9 @@ export default function MissionDetails() {
     );
   }
 
-  // Derived Values for UI
   const pickupName = mission.pickup_name || mission.pickup_address || "Enlèvement";
   const pickupAddr = mission.pickup_address || "";
   const pickupCity = `${mission.pickup_postal_code || ''} ${mission.pickup_city || ''}`.trim();
-
   const deliveryName = mission.delivery_name || mission.delivery_address || "Livraison";
   const deliveryAddr = mission.delivery_address || "";
   const deliveryCity = `${mission.delivery_postal_code || ''} ${mission.delivery_city || ''}`.trim();
@@ -413,10 +465,12 @@ export default function MissionDetails() {
         </div>
       )}
 
-      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3.5 flex items-center justify-between backdrop-blur-md bg-white/90">
         <div className="flex items-center gap-3">
-          <Link to="/missions" className="text-[#1d283a]">←</Link>
-          <h1 className="text-lg font-bold tracking-tight uppercase">Mission</h1>
+          <Link to="/missions" className="p-2 -ml-2 rounded-xl active:bg-slate-100 transition-colors">
+            <ArrowLeftIcon />
+          </Link>
+          <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-900">Détails Mission</h1>
         </div>
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />
@@ -435,25 +489,31 @@ export default function MissionDetails() {
           </div>
         </div>
 
-        <section className="px-4 mb-3">
-          <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Historique</h2>
+        <section className="px-4 mb-4">
+          <div className="bg-white rounded-[24px] p-5 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                <HistoryIcon />
+                Chronologie
+              </h2>
             </div>
-            <div className="space-y-1">
-              <div className="flex items-start gap-3">
-                <span className="text-gray-400">⭡</span>
+            <div className="space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="mt-1 h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                 <div className="flex-1">
-                  <p className="text-xs text-gray-500">Enlèvement</p>
-                  <p className="text-sm font-medium">{formatDateTime(mission.picked_up_at)}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Prise en charge</p>
+                  <p className="text-[13px] font-semibold text-slate-900">
+                    {mission.picked_up_at ? formatDateTime(mission.picked_up_at) : 'En attente...'}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <span className="text-gray-400">⭣</span>
-                <div className="flex-1 border-t border-gray-50 pt-3">
-                  <p className="text-xs text-gray-500">Livraison</p>
-                  <p className="text-sm font-medium text-gray-300">
-                    {mission.status === 'delivered' ? formatDateTime(mission.updated_at) : '—'}
+              <div className="flex items-start gap-4 pt-1 relative">
+                <div className="absolute left-1 -top-3 w-[1px] h-4 bg-slate-100" />
+                <div className={`mt-1 h-2 w-2 rounded-full ${mission.status === 'delivered' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-200'}`} />
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Livraison finale</p>
+                  <p className={`text-[13px] font-semibold ${mission.status === 'delivered' ? 'text-slate-900' : 'text-slate-300'}`}>
+                    {mission.status === 'delivered' ? formatDateTime(mission.updated_at) : 'Pas encore livrée'}
                   </p>
                 </div>
               </div>
@@ -570,55 +630,66 @@ export default function MissionDetails() {
             </div>
           </details>
 
-          <details className="bg-white rounded-xl p-3 shadow-sm border border-gray-100" open>
+          <details className="bg-white rounded-[24px] p-5 shadow-sm border border-slate-100" open>
             <summary className="list-none cursor-pointer">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">📦</span>
-                <h3 className="font-bold uppercase text-xs tracking-wider">Colis & Service</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <BoxIcon />
+                  </div>
+                  <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-900">Colis & Service</h3>
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="m6 9 6 6 6-6"/></svg>
               </div>
             </summary>
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Véhicule</p>
-                  <p className="text-sm font-semibold capitalize">{mission.vehicle_type || "Standard"}</p>
+            <div className="mt-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Véhicule</p>
+                  <p className="text-sm font-bold text-slate-900 capitalize flex items-center gap-2">
+                    <TruckIcon />
+                    {mission.vehicle_type || "Standard"}
+                  </p>
                 </div>
-                <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Formule</p>
-                  <p className="text-sm font-semibold capitalize text-red-500">{mission.service_level || "Standard"}</p>
+                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Formule</p>
+                  <p className="text-sm font-black capitalize text-red-600 flex items-center gap-2">
+                    <ZapIcon />
+                    {mission.service_level || "Standard"}
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Type de colis</p>
-                  <p className="text-sm font-semibold capitalize">{mission.package_type || "Colis"}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Type</p>
+                  <p className="text-sm font-bold text-slate-900 capitalize">{mission.package_type || "Colis"}</p>
                 </div>
-                <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Poids</p>
-                  <p className="text-sm font-semibold">{mission.weight ? `${mission.weight} kg` : "—"}</p>
+                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Poids</p>
+                  <p className="text-sm font-bold text-slate-900">{mission.weight ? `${mission.weight} kg` : "—"}</p>
                 </div>
               </div>
               {mission.package_description && (
-                <div className="p-2.5 bg-gray-50 rounded-xl">
-                  <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Nature du contenu</p>
-                  <p className="text-sm font-semibold">{mission.package_description}</p>
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Nature du contenu</p>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed">{mission.package_description}</p>
                 </div>
               )}
             </div>
           </details>
         </section>
 
-        <section className="p-4 py-3 space-y-2">
+        <section className="p-4 pt-6 space-y-3">
           {mission.status !== "delivered" && (
             <>
-              {/* Bouton Enlèvement : Prioritaire car la mission est forcée/automatiquement acceptée */}
               {pickupStages.includes(mission.status) && mission.status !== "in_progress" && (
                 <button
                   type="button"
                   onClick={handlePickup}
                   disabled={saving}
-                  className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                  className="w-full bg-slate-900 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-xl shadow-slate-900/10 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
+                  <CheckIcon />
                   Confirmer l'Enlèvement
                 </button>
               )}
@@ -631,8 +702,9 @@ export default function MissionDetails() {
                     fileRef.current?.click();
                   }}
                   disabled={saving}
-                  className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                  className="w-full bg-emerald-600 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-600/10 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
+                  <CheckIcon />
                   Valider la Livraison
                 </button>
               )}
@@ -643,9 +715,11 @@ export default function MissionDetails() {
                   setPendingAction("PROOF");
                   fileRef.current?.click();
                 }}
-                className="w-full bg-[#1d283a] text-white py-3 rounded-xl font-bold text-sm"
+                className="w-full bg-white text-slate-900 border-2 border-slate-900 py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:bg-slate-50 transition-colors"
+                disabled={saving}
               >
-                Prendre une Photo (preuve)
+                <CameraIcon />
+                Prendre une Photo
               </button>
 
               <input
@@ -658,7 +732,7 @@ export default function MissionDetails() {
                   const file = e.target.files?.[0];
                   if (!file) return;
                   const reader = new FileReader();
-                  reader.onload = () => {
+                  reader.onload = async () => {
                     const dataUrl = String(reader.result || "");
                     setPendingPhoto({ dataUrl, name: file.name });
                   };
@@ -670,12 +744,12 @@ export default function MissionDetails() {
           )}
 
           {mission.status !== "delivered" && (mission.status === "assigned" || (mission.status === "driver_accepted" && !mission.driver_id)) && (
-            <div className="mt-4 grid gap-3">
+            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={handleAccept}
                 disabled={saving || !currentUserId}
-                className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-colors"
+                className="w-full bg-emerald-600 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-600/10 active:scale-[0.98] transition-all"
               >
                 Accepter la mission
               </button>
@@ -683,40 +757,20 @@ export default function MissionDetails() {
                 type="button"
                 onClick={handleDecline}
                 disabled={saving}
-                className="w-full bg-red-50 text-red-600 border border-red-100 py-3 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors"
+                className="w-full bg-red-50 text-red-600 border border-red-100 py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] active:bg-red-100 transition-all flex items-center justify-center gap-2"
               >
-                Refuser la mission / Me désister
+                <XCircleIcon />
+                Me désister
               </button>
             </div>
           )}
 
-          <Link to="/missions" className="w-full py-1 text-gray-500 font-semibold text-xs flex items-center justify-center gap-1">
-            ← Retour à la liste
+          <Link to="/missions" className="w-full py-4 text-slate-400 font-bold text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:text-slate-600 transition-colors">
+            <ArrowLeftIcon />
+            Retour à la liste
           </Link>
         </section>
       </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 app-nav">
-        <div className="flex items-center justify-around h-16">
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-[#1d283a]" to="/missions">
-            <span>📋</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Mission</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/map">
-            <span>🕓</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Historique</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/chat">
-            <span>💬</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tchat</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/profile">
-            <span>👤</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Profil</span>
-          </Link>
-        </div>
-        <div className="h-5 bg-white" />
-      </nav>
 
       {/* Modal Mission Annulée / Supprimée */}
       {showModal && (

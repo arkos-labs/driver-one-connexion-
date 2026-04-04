@@ -5,52 +5,14 @@ import { supabase } from "../lib/supabase";
 export default function RegisterPage() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [suggestions, setSuggestions] = useState([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [showSuggestions, setShowSuggestions] = useState(false);
 
     const [form, setForm] = useState({
         firstName: "", lastName: "",
-        phone: "", email: "", password: "", company: "",
-        siret: "", address: "", model: "", plate: "",
+        phone: "", email: "", password: "",
+        model: "", plate: "",
         type: "", iban: "", bic: ""
     });
 
-    const searchCompany = async (query) => {
-        if (!query || query.length < 3) {
-            setSuggestions([]);
-            return;
-        }
-
-        setSearchLoading(true);
-        try {
-            const resp = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${query}&per_page=5`);
-            const data = await resp.json();
-            if (data.results) {
-                setSuggestions(data.results.map(r => ({
-                    name: r.nom_complet || r.nom_raison_sociale,
-                    siret: r.siege?.siret || r.matching_etablissements?.[0]?.siret || "",
-                    address: r.siege?.adresse || r.matching_etablissements?.[0]?.adresse || ""
-                })));
-                setShowSuggestions(true);
-            }
-        } catch (err) {
-            console.error("Search error:", err);
-        } finally {
-            setSearchLoading(false);
-        }
-    };
-
-    const onSelectCompany = (s) => {
-        setForm({
-            ...form,
-            company: s.name,
-            siret: s.siret,
-            address: s.address
-        });
-        setSuggestions([]);
-        setShowSuggestions(false);
-    };
 
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -67,8 +29,6 @@ export default function RegisterPage() {
                         role: 'courier',
                         full_name: `${form.firstName} ${form.lastName}`.trim(),
                         phone: form.phone,
-                        company: form.company,
-                        siret: form.siret,
                     }
                 }
             });
@@ -82,10 +42,7 @@ export default function RegisterPage() {
                     details: {
                         full_name: `${form.firstName} ${form.lastName}`.trim(),
                         phone_number: form.phone,
-                        company: form.company,
-                        siret: form.siret,
                         email: form.email,
-                        address: form.address,
                         vehicle_model: form.model,
                         vehicle_plate: form.plate,
                         vehicle_type: form.type,
@@ -127,62 +84,6 @@ export default function RegisterPage() {
                             </div>
                         </section>
 
-                        <section>
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Société</h2>
-                            <div className="grid gap-3">
-                                <div className="relative">
-                                    <input
-                                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:ring-2 focus:ring-blue-100 outline-none"
-                                        placeholder="Nom de l'entreprise (Autocomplete)"
-                                        value={form.company}
-                                        onChange={(e) => {
-                                            setForm({ ...form, company: e.target.value });
-                                            searchCompany(e.target.value);
-                                        }}
-                                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                        required
-                                    />
-                                    {searchLoading && (
-                                        <div className="absolute right-3 top-3.5">
-                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                                        </div>
-                                    )}
-                                    {showSuggestions && suggestions.length > 0 && (
-                                        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">
-                                            {suggestions.map((s, i) => (
-                                                <button
-                                                    key={i}
-                                                    type="button"
-                                                    className="w-full rounded-lg px-3 py-2 text-left hover:bg-slate-50 transition-colors"
-                                                    onClick={() => onSelectCompany(s)}
-                                                >
-                                                    <div className="text-sm font-bold text-slate-900">{s.name}</div>
-                                                    <div className="text-[10px] text-slate-500 truncate">{s.address}</div>
-                                                    <div className="text-[10px] text-blue-600 font-mono mt-0.5">SIRET: {s.siret}</div>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        className="w-full rounded-xl border border-gray-200 px-3 py-3 text-sm focus:ring-2 focus:ring-blue-100 outline-none font-mono"
-                                        placeholder="SIRET (Autocomplete)"
-                                        value={form.siret}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\s/g, '');
-                                            setForm({ ...form, siret: val });
-                                            if (val.length >= 9) searchCompany(val);
-                                        }}
-                                        onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-                                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                                        required
-                                    />
-                                </div>
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm bg-slate-50" placeholder="Adresse du siège" value={form.address} readOnly />
-                            </div>
-                        </section>
 
                         <section>
                             <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Véhicule</h2>

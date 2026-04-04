@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import { registerPushNotifications } from './lib/pushNotifications'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -42,8 +43,17 @@ const preventSwipeBack = () => {
 
 preventSwipeBack();
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-  })
+// Register Push Notifications & Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      // Use the sw.js from dist if it exists, otherwise use the source one (Vite PWA handles this)
+      const swUrl = import.meta.env.PROD ? '/sw.js' : '/dev-sw.js?dev-sw';
+      // Actually, with Vite PWA in 'injectManifest' mode, we might need a different approach.
+      // But for now, let's just trigger our custom registration.
+      await registerPushNotifications();
+    } catch (err) {
+      console.error('SW registration failed:', err);
+    }
+  });
 }

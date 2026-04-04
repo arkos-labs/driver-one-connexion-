@@ -45,18 +45,14 @@ export default function MapPage() {
 
   return (
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
-      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* menu removed */}
-          <h1 className="text-lg font-bold tracking-tight uppercase">Historique</h1>
-        </div>
+      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3.5 flex items-center justify-between backdrop-blur-md bg-white/90">
+        <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-900">Historique</h1>
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />
         </div>
-        <div className="flex items-center gap-2" />
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1">
         <div className="px-4 py-3">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#1d283a]/10 text-[#1d283a] border border-[#1d283a]/20">
             <span className="relative flex h-2 w-2">
@@ -113,27 +109,6 @@ export default function MapPage() {
         </section>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 app-nav">
-        <div className="flex items-center justify-around h-16">
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/missions">
-            <span>📋</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Mission</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-[#1d283a]" to="/map">
-            <span>🕓</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Historique</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/chat">
-            <span>💬</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Tchat</span>
-          </Link>
-          <Link className="flex flex-col items-center justify-center gap-0.5 text-gray-400" to="/profile">
-            <span>👤</span>
-            <span className="text-[10px] font-bold uppercase tracking-tighter">Profil</span>
-          </Link>
-        </div>
-        <div className="h-5 bg-white" />
-      </nav>
     </div>
   );
 }
