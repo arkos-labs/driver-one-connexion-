@@ -83,8 +83,8 @@ export default function AdminPage() {
     if (error) {
       alert("Erreur lors de l'assignation : " + error.message);
     } else {
-      // Trigger push notification
-      await sendPushToDriver(driverId, orderId, order.pickup_name, order.delivery_name);
+      // Trigger push notification (now handled by database trigger for consistency)
+      // await sendPushToDriver(driverId, orderId, order.pickup_name, order.delivery_name);
       // fetchOrders will be called by the realtime subscription
     }
   };
