@@ -46,6 +46,49 @@ export default function AdminPage() {
     window._toastTimeout2 = setTimeout(() => setToast(null), 5000);
   };
 
+  const sendPushToDriver = async (driverId, orderId, pickupName, deliveryName) => {
+    try {
+      console.log("Triggering push for driver:", driverId);
+      const { data, error } = await supabase.functions.invoke('send-mission-push', {
+        body: {
+          user_id: driverId,
+          title: '📦 Nouvelle mission assignée !',
+          body: `${pickupName || 'Enlèvement'} → ${deliveryName || 'Livraison'}`,
+          url: `/missions/${orderId}`,
+        },
+      });
+      if (error) console.error('Push error:', error);
+      else console.log('Push response:', data);
+    } catch (err) {
+      console.error('sendPushToDriver error:', err);
+    }
+  };
+
+  const assignOrder = async (orderId, driverId) => {
+    if (!orderId || !driverId) return;
+    
+    // Find order data for the push notification
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ 
+        driver_id: driverId,
+        status: 'assigned',
+        assigned_at: new Date().toISOString()
+      })
+      .eq('id', orderId);
+
+    if (error) {
+      alert("Erreur lors de l'assignation : " + error.message);
+    } else {
+      // Trigger push notification
+      await sendPushToDriver(driverId, orderId, order.pickup_name, order.delivery_name);
+      // fetchOrders will be called by the realtime subscription
+    }
+  };
+
   const [typingStatus, setTypingStatus] = useState("");
   const typingTimeoutRef = useRef(null);
   const driversRef = useRef([]);
@@ -567,8 +610,31 @@ export default function AdminPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="mt-2 pt-2 border-t border-slate-200/50 flex items-center justify-between text-[10px]">
-                      <span className="text-slate-400">Chauffeur: <span className="text-slate-600 font-bold">{o.profiles?.details?.full_name || 'Non assigné'}</span></span>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigner à</div>
+                      <select 
+                        className="w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium focus:ring-2 focus:ring-blue-100 outline-none bg-white"
+                        value={o.driver_id || ""}
+                        onChange={(e) => assignOrder(o.id, e.target.value)}
+                      >
+                        <option value="">-- Sélectionner un chauffeur --</option>
+                        {drivers.filter(d => d.is_online).map(d => (
+                          <option key={d.id} value={d.id}>
+                            🟢 {d.details?.full_name || d.email}
+                          </option>
+                        ))}
+                        <optgroup label="Hors ligne">
+                          {drivers.filter(d => !d.is_online).map(d => (
+                            <option key={d.id} value={d.id}>
+                              ⚪ {d.details?.full_name || d.email}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/50 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">Statut: <span className="text-slate-600 font-bold uppercase">{o.status}</span></span>
                       <span className="text-slate-400">Créé: {new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
