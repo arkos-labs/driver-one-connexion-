@@ -214,7 +214,7 @@ export default function MissionDetails() {
       const blob = await res.blob();
       
       const fileExt = name.split('.').pop() || 'jpg';
-      const fileName = `${id}/${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/${id}/${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
