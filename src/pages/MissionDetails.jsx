@@ -695,32 +695,34 @@ export default function MissionDetails() {
               )}
 
               {deliveryStages.includes(mission.status) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPendingAction("DELIVER");
-                    fileRef.current?.click();
-                  }}
-                  disabled={saving}
-                  className="w-full bg-emerald-600 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-600/10 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                >
-                  <CheckIcon />
-                  Valider la Livraison
-                </button>
-              )}
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingAction("DELIVER");
+                      fileRef.current?.click();
+                    }}
+                    disabled={saving}
+                    className="w-full bg-emerald-600 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-600/10 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                  >
+                    <CheckIcon />
+                    Valider la Livraison
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingAction("PROOF");
-                  fileRef.current?.click();
-                }}
-                className="w-full bg-white text-slate-900 border-2 border-slate-900 py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:bg-slate-50 transition-colors"
-                disabled={saving}
-              >
-                <CameraIcon />
-                Prendre une Photo
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingAction("PROOF");
+                      fileRef.current?.click();
+                    }}
+                    className="w-full bg-white text-slate-900 border-2 border-slate-900 py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:bg-slate-50 transition-colors"
+                    disabled={saving}
+                  >
+                    <CameraIcon />
+                    Prendre une Photo
+                  </button>
+                </>
+              )}
 
               <input
                 ref={fileRef}
