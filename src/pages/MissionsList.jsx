@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
 import { supabase } from "../lib/supabase";
+import { ensurePushSubscription } from "../lib/push";
 
 function statusTitle(status) {
   switch (status) {
@@ -53,7 +54,21 @@ export default function MissionsList() {
   const [missions, setMissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [pushStatus, setPushStatus] = useState('');
   const prevMissionIdsRef = useRef(new Set());
+
+  const testPush = async () => {
+    setPushStatus('Test en cours...');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setPushStatus('Pas connecté'); return; }
+    
+    const sub = await ensurePushSubscription(user.id);
+    if (sub) {
+      setPushStatus('✅ Subscription OK - endpoint: ' + sub.endpoint.slice(0, 40) + '...');
+    } else {
+      setPushStatus('❌ Subscription FAILED - voir console');
+    }
+  };
 
   useEffect(() => {
     async function init() {
@@ -140,6 +155,16 @@ export default function MissionsList() {
         </div>
         <div className="flex items-center gap-2" />
       </header>
+
+      <button 
+        onClick={testPush}
+        className="mx-4 mt-2 w-[calc(100%-2rem)] bg-orange-500 text-white py-2 rounded-xl text-sm font-bold shadow-sm"
+      >
+        🔔 Tester Push Subscription
+      </button>
+      {pushStatus && (
+        <p className="mx-4 mt-1 text-xs text-gray-600 break-all">{pushStatus}</p>
+      )}
 
       <main className="flex-1">
         <div className="px-4 py-4 pt-6">
