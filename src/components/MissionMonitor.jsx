@@ -72,8 +72,6 @@ export default function MissionMonitor() {
                     }
                     prevMissionsRef.current = count;
 
-                    showPersistentNotification(count);
-
                     // Trap history
                     if (!window.history.state?.missionLocked) {
                         window.history.pushState({ missionLocked: true }, "", window.location.href);
