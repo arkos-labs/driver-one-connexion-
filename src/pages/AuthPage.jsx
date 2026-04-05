@@ -12,27 +12,30 @@ export default function AuthPage() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setLoading(true);
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
 
-        if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
-          navigate("/admin");
-          return;
-        }
+          if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+            navigate("/admin");
+            return;
+          }
 
-        if (profileError || profile?.role !== 'courier') {
-          // Si on n'est pas courier, on reste sur la page login pour laisser le choix
+          if (profileError || profile?.role !== 'courier') {
+            setPageLoading(false);
+            return;
+          }
+          navigate("/missions");
+        } else {
           setPageLoading(false);
-          return;
         }
-        navigate("/missions");
-      } else {
+      } catch (e) {
+        console.error("Session check error:", e);
         setPageLoading(false);
       }
     };

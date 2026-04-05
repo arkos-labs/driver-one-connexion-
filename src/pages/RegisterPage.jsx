@@ -18,36 +18,41 @@ export default function RegisterPage() {
 
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session: currentSession } } = await supabase.auth.getSession();
-            if (currentSession) {
-                setSession(currentSession);
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', currentSession.user.id)
-                    .single();
+            try {
+                const { data: { session: currentSession } } = await supabase.auth.getSession();
+                if (currentSession) {
+                    setSession(currentSession);
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('id', currentSession.user.id)
+                        .single();
 
-                if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
-                    navigate("/admin");
-                    return;
-                }
+                    if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+                        navigate("/admin");
+                        return;
+                    }
 
-                if (profile && profile.role === 'courier') {
-                    navigate("/missions");
+                    if (profile && profile.role === 'courier') {
+                        navigate("/missions");
+                    } else {
+                        const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
+                        const nameParts = fullName.trim().split(/\s+/);
+                        const firstName = nameParts[0] || "";
+                        const lastName = nameParts.slice(1).join(" ") || "";
+                        setForm(prev => ({
+                            ...prev,
+                            email: currentSession.user.email || "",
+                            firstName: firstName,
+                            lastName: lastName,
+                        }));
+                        setPageLoading(false);
+                    }
                 } else {
-                    const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
-                    const nameParts = fullName.trim().split(/\s+/);
-                    const firstName = nameParts[0] || "";
-                    const lastName = nameParts.slice(1).join(" ") || "";
-                    setForm(prev => ({
-                        ...prev,
-                        email: currentSession.user.email || "",
-                        firstName: firstName,
-                        lastName: lastName,
-                    }));
                     setPageLoading(false);
                 }
-            } else {
+            } catch (e) {
+                console.error("Session check error:", e);
                 setPageLoading(false);
             }
         };
