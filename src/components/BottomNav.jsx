@@ -16,10 +16,11 @@ const HistoryIcon = ({ active }) => (
   </svg>
 );
 
-const GainsIcon = ({ active }) => (
+const StatsIcon = ({ active }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="5" width="20" height="14" rx="2" />
-    <line x1="2" y1="10" x2="22" y2="10" />
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
   </svg>
 );
 
@@ -42,7 +43,7 @@ export default function BottomNav() {
   const navItems = [
     { path: "/missions", label: "Missions", icon: MissionsIcon },
     { path: "/map", label: "Historique", icon: HistoryIcon },
-    { path: "/gains", label: "Gains", icon: GainsIcon },
+    { path: "/gains", label: "Stats", icon: StatsIcon },
     { path: "/chat", label: "Tchat", icon: ChatIcon },
     { path: "/profile", label: "Profil", icon: ProfileIcon },
   ];
