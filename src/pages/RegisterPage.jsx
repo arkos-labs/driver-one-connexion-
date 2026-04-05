@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 export default function RegisterPage() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [pageLoading, setPageLoading] = useState(true);
 
     const [form, setForm] = useState({
         firstName: "", lastName: "",
@@ -44,7 +45,10 @@ export default function RegisterPage() {
                         firstName: firstName,
                         lastName: lastName,
                     }));
+                    setPageLoading(false);
                 }
+            } else {
+                setPageLoading(false);
             }
         };
         checkSession();
@@ -55,7 +59,7 @@ export default function RegisterPage() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin + "/register",
+                redirectTo: window.location.origin + "/login",
             },
         });
         if (error) {
@@ -126,6 +130,17 @@ export default function RegisterPage() {
             setLoading(false);
         }
     };
+
+    if (pageLoading) {
+        return (
+            <div className="min-h-screen bg-[#f6f7f7] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <img src="/logo.svg" alt="Logo" className="h-20 w-20 animate-pulse" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1d283a] border-t-transparent" />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a] py-8">

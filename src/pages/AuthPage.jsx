@@ -7,6 +7,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -33,6 +34,8 @@ export default function AuthPage() {
           return;
         }
         navigate("/profile");
+      } else {
+        setPageLoading(false);
       }
     };
     checkSession();
@@ -75,7 +78,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + "/register",
+        redirectTo: window.location.origin + "/login",
       },
     });
     if (error) {
@@ -83,6 +86,17 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-[#f6f7f7] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <img src="/logo.svg" alt="Logo" className="h-20 w-20 animate-pulse" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1d283a] border-t-transparent" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a] overflow-hidden">
