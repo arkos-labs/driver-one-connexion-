@@ -638,7 +638,13 @@ export default function AdminPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex flex-col gap-2">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigner à</div>
+                       {o.driver_id && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                          <span className="text-[11px] font-black uppercase tracking-widest text-slate-800">Assigné à : {o.profiles?.details?.full_name || 'Chargement...'}</span>
+                        </div>
+                      )}
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{o.driver_id ? "Réassigner à" : "Assigner à"}</div>
                       <select 
                         className="w-full rounded-lg border border-slate-200 px-2 py-2 text-xs font-medium focus:ring-2 focus:ring-blue-100 outline-none bg-white"
                         value={o.driver_id || ""}
