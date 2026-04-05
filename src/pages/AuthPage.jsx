@@ -27,10 +27,8 @@ export default function AuthPage() {
         }
 
         if (profileError || profile?.role !== 'courier') {
-          // Si l'utilisateur est un client (par défaut après login Google) ou n'a pas de profil
-          // on le renvoie vers la page d'inscription pour qu'il complète son profil chauffeur
-          setLoading(false);
-          navigate("/register");
+          // Si on n'est pas courier, on reste sur la page login pour laisser le choix
+          setPageLoading(false);
           return;
         }
         navigate("/missions");
@@ -112,6 +110,18 @@ export default function AuthPage() {
             {error && (
               <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 text-center">
                 {error}
+              </div>
+            )}
+
+            {supabase.auth.getUser() && !pageLoading && (
+              <div className="text-center">
+                 <button 
+                    type="button"
+                    onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+                    className="mb-4 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full uppercase tracking-wider"
+                  >
+                    Se déconnecter / Changer de compte
+                  </button>
               </div>
             )}
 

@@ -151,6 +151,14 @@ export default function RegisterPage() {
                         <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
                         <h1 className="mt-2 text-2xl font-bold">Inscription Chauffeur</h1>
                         <p className="text-sm text-gray-500 mt-1">Rejoignez notre équipe de coursiers</p>
+                        {session && (
+                            <button 
+                                onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
+                                className="mt-4 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full uppercase tracking-wider"
+                            >
+                                Se déconnecter / Changer de compte
+                            </button>
+                        )}
                     </div>
 
                     <div className="mb-8">
