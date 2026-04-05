@@ -11,55 +11,63 @@ export default function AuthPage() {
   const [error, setError] = useState(null);
 
     useEffect(() => {
-      // Sécurité : si la vérification prend plus de 2.5s, on affiche le formulaire de toute façon
-      const timer = setTimeout(() => {
-        setPageLoading(false);
-      }, 2500);
-
-      const checkSession = async () => {
+      let isMounted = true;
+      
+      const checkUser = async (currentSession) => {
+        if (!currentSession || !isMounted) return;
+        
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('role')
-              .eq('id', session.user.id)
-              .single();
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', currentSession.user.id)
+            .single();
 
-            if (profileError || !profile) {
-              // Nouveau compte : redirection vers register pour compléter le profil
-              clearTimeout(timer);
-              navigate("/register");
-              return;
-            }
+          if (!isMounted) return;
 
-            if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
-              clearTimeout(timer);
-              navigate("/admin");
-              return;
-            }
+          if (profileError || !profile) {
+            navigate("/register");
+            return;
+          }
 
-            if (profile?.role === 'courier') {
-              clearTimeout(timer);
-              navigate("/missions");
-            } else {
-              // Role inconnu, on reste ici
-              clearTimeout(timer);
-              setPageLoading(false);
-            }
+          if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+            navigate("/admin");
+          } else if (profile?.role === 'courier') {
+            navigate("/missions");
           } else {
-            clearTimeout(timer);
             setPageLoading(false);
           }
         } catch (e) {
           console.error("Session check error:", e);
-          clearTimeout(timer);
-          setPageLoading(false);
+          if (isMounted) setPageLoading(false);
         }
       };
-      
-      checkSession();
-      return () => clearTimeout(timer);
+
+      // Listener pour les changements d'état (plus robuste pour OAuth mobile)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session && isMounted) {
+          await checkUser(session);
+        } else if (!session && isMounted) {
+          setPageLoading(false);
+        }
+      });
+
+      // Vérification initiale du lien magique ou du hash OAuth
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          checkUser(session);
+        } else {
+          // Si après 3s on n'a rien, on affiche le formulaire
+          setTimeout(() => {
+            if (isMounted) setPageLoading(false);
+          }, 3000);
+        }
+      });
+
+      return () => {
+        isMounted = false;
+        subscription.unsubscribe();
+      };
     }, [navigate]);
 
   const handleLogin = async (e) => {

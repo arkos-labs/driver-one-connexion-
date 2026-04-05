@@ -17,57 +17,70 @@ export default function RegisterPage() {
     const [session, setSession] = useState(null);
 
     useEffect(() => {
-        // Sécurité : si la vérification prend plus de 2.5s, on affiche le formulaire de toute façon
-        const timer = setTimeout(() => {
-            setPageLoading(false);
-        }, 2500);
+        let isMounted = true;
 
-        const checkSession = async () => {
+        const checkUser = async (currentSession) => {
+            if (!currentSession || !isMounted) return;
+            setSession(currentSession);
+            
             try {
-                const { data: { session: currentSession } } = await supabase.auth.getSession();
-                if (currentSession) {
-                    setSession(currentSession);
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', currentSession.user.id)
-                        .single();
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', currentSession.user.id)
+                    .single();
 
-                    if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
-                        clearTimeout(timer);
-                        navigate("/admin");
-                        return;
-                    }
+                if (!isMounted) return;
 
-                    if (profile && profile.role === 'courier') {
-                        clearTimeout(timer);
-                        navigate("/missions");
-                    } else {
-                        const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
-                        const nameParts = fullName.trim().split(/\s+/);
-                        const firstName = nameParts[0] || "";
-                        const lastName = nameParts.slice(1).join(" ") || "";
-                        setForm(prev => ({
-                            ...prev,
-                            email: currentSession.user.email || "",
-                            firstName: firstName,
-                            lastName: lastName,
-                        }));
-                        clearTimeout(timer);
-                        setPageLoading(false);
-                    }
+                if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+                    navigate("/admin");
+                } else if (profile && profile.role === 'courier') {
+                    navigate("/missions");
                 } else {
-                    clearTimeout(timer);
+                    // Nouvel utilisateur sans profil : remplir le formulaire avec les infos Google
+                    const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
+                    const nameParts = fullName.trim().split(/\s+/);
+                    const firstName = nameParts[0] || "";
+                    const lastName = nameParts.slice(1).join(" ") || "";
+                    setForm(prev => ({
+                        ...prev,
+                        email: currentSession.user.email || "",
+                        firstName: firstName,
+                        lastName: lastName,
+                    }));
                     setPageLoading(false);
                 }
             } catch (e) {
                 console.error("Session check error:", e);
-                clearTimeout(timer);
-                setPageLoading(false);
+                if (isMounted) setPageLoading(false);
             }
         };
-        checkSession();
-        return () => clearTimeout(timer);
+
+        // Listener pour les changements d'état (plus robuste pour OAuth mobile)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session && isMounted) {
+                await checkUser(session);
+            } else if (!session && isMounted) {
+                setPageLoading(false);
+            }
+        });
+
+        // Vérification initiale du lien magique ou du hash OAuth
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                checkUser(session);
+            } else {
+                // Si après 3s on n'a rien, on affiche le formulaire vide
+                setTimeout(() => {
+                    if (isMounted) setPageLoading(false);
+                }, 3000);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, [navigate]);
 
     const handleGoogleLogin = async () => {
