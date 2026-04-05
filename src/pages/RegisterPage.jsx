@@ -13,26 +13,31 @@ export default function RegisterPage() {
         type: "", iban: "", bic: ""
     });
 
+    const [session, setSession] = useState(null);
+
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            if (currentSession) {
+                setSession(currentSession);
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('*')
-                    .eq('id', session.user.id)
+                    .eq('id', currentSession.user.id)
                     .single();
 
                 if (profile) {
                     navigate("/missions");
                 } else {
-                    const fullName = session.user.user_metadata?.full_name || session.user.user_metadata?.name || "";
-                    const [firstName, ...lastNameParts] = fullName.split(" ");
+                    const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
+                    const nameParts = fullName.trim().split(/\s+/);
+                    const firstName = nameParts[0] || "";
+                    const lastName = nameParts.slice(1).join(" ") || "";
                     setForm(prev => ({
                         ...prev,
-                        email: session.user.email || "",
-                        firstName: firstName || "",
-                        lastName: lastNameParts.join(" ") || "",
+                        email: currentSession.user.email || "",
+                        firstName: firstName,
+                        lastName: lastName,
                     }));
                 }
             }
@@ -49,7 +54,7 @@ export default function RegisterPage() {
             },
         });
         if (error) {
-            alert("Erreur : " + error.message);
+            alert("Erreur : " + error.message + " (Vérifiez que Google est bien activé dans votre tableau de bord Supabase)");
             setLoading(false);
         }
     };
@@ -59,7 +64,6 @@ export default function RegisterPage() {
         setLoading(true);
         
         try {
-            const { data: { session } } = await supabase.auth.getSession();
             let userId = session?.user?.id;
 
             if (!session) {
@@ -69,7 +73,7 @@ export default function RegisterPage() {
                     return;
                 }
                 if (form.password.length < 6) {
-                    alert("Le mot de passe doit faire 6 caractères.");
+                    alert("Le mot de passe doit faire au moins 6 caractères.");
                     setLoading(false);
                     return;
                 }
@@ -108,7 +112,7 @@ export default function RegisterPage() {
                 
                 if (upsertError) throw upsertError;
                 
-                alert("✅ Inscription réussie !");
+                alert("✅ Inscription réussie ! Votre compte est prêt.");
                 navigate("/missions");
             }
         } catch (err) {
@@ -168,17 +172,27 @@ export default function RegisterPage() {
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-6">
-                        <section>
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Informations Personnelles</h2>
-                            <div className="grid gap-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Prénom" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Nom" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
+                        {!session && (
+                            <section>
+                                <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Informations Personnelles</h2>
+                                <div className="grid gap-3">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Prénom" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
+                                        <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Nom" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
+                                    </div>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm disabled:bg-gray-50" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="Mot de passe" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!session} />
                                 </div>
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm disabled:bg-gray-50" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="Mot de passe" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!form.password && !loading} />
+                            </section>
+                        )}
+
+                        <section>
+                             <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">
+                                {session ? "Finaliser votre profil" : "Téléphone"}
+                             </h2>
+                             <div className="grid gap-3">
                                 <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Téléphone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-                            </div>
+                             </div>
                         </section>
 
 
