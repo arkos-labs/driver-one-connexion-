@@ -15,6 +15,9 @@ const CreditCardIcon = () => (
 const EditIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
 );
+const CameraIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+);
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -31,6 +34,7 @@ export default function ProfilePage() {
     company: "",
     siret: "",
     address: "",
+    avatar_url: "",
   });
 
   const [vehicle, setVehicle] = useState({
@@ -70,6 +74,7 @@ export default function ProfilePage() {
           company: d.company || meta.company || "",
           siret: d.siret || meta.siret || "",
           address: d.address || "",
+          avatar_url: d.avatar_url || meta.avatar_url || profile.avatar_url || "",
         });
         setVehicle({
           model: d.vehicle_model || d.model || "",
@@ -111,6 +116,59 @@ export default function ProfilePage() {
     };
   }, [navigate]);
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSaveLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('delivery-photos')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('delivery-photos')
+        .getPublicUrl(fileName);
+
+      // Update local state
+      setPersonal(prev => ({ ...prev, avatar_url: publicUrl }));
+
+      // Update database
+      const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("details")
+        .eq("id", user.id)
+        .single();
+      
+      const updatedDetails = {
+        ...(currentProfile?.details || {}),
+        avatar_url: publicUrl
+      };
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ details: updatedDetails })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      alert("Photo de profil mise à jour !");
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      alert("Erreur lors de l'upload de l'avatar : " + err.message);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaveLoading(true);
     try {
@@ -124,6 +182,7 @@ export default function ProfilePage() {
         company: personal.company,
         siret: personal.siret,
         address: personal.address,
+        avatar_url: personal.avatar_url,
         vehicle_model: vehicle.model,
         vehicle_plate: vehicle.plate,
         vehicle_type: vehicle.type,
@@ -183,8 +242,18 @@ export default function ProfilePage() {
         <div className="mx-4 mt-4 rounded-[26px] border border-slate-200/70 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-xl font-semibold text-white uppercase shadow-lg shadow-slate-900/20">
-                {personal.full_name ? personal.full_name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2).toUpperCase() : "1C"}
+              <div className="relative group">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-xl font-semibold text-white rotate-0 shadow-lg shadow-slate-900/20 overflow-hidden">
+                  {personal.avatar_url ? (
+                    <img src={personal.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="uppercase">{personal.full_name ? personal.full_name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2) : "1C"}</span>
+                  )}
+                </div>
+                <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
+                  <CameraIcon />
+                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                </label>
               </div>
               <div>
                 <div className="text-lg font-semibold text-slate-900">{personal.full_name || "Chauffeur"}</div>
