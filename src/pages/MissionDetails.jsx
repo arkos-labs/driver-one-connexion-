@@ -811,7 +811,14 @@ export default function MissionDetails() {
               {mission.package_description && (
                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Nature du contenu</p>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed">{mission.package_description}</p>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{mission.package_description}"</p>
+                </div>
+              )}
+
+              {mission.notes && (
+                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Commentaire sur l'horaire</p>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{mission.notes}"</p>
                 </div>
               )}
             </div>
