@@ -130,10 +130,7 @@ export default function OnlineSwitch() {
         <span className={`oc-switch-label ${online ? "text-emerald-600" : "text-gray-400"}`}>
           {online ? "EN LIGNE" : "HORS LIGNE"}
         </span>
-        <span className={`oc-switch transition-all duration-300 ${
-          pushStatus === 'subscribed' ? 'ring-2 ring-emerald-400 ring-offset-2' : 
-          pushStatus === 'denied' ? 'ring-2 ring-red-400 ring-offset-2' : ''
-        }`}>
+        <span className="oc-switch transition-all duration-300">
           <input
             type="checkbox"
             checked={online}
