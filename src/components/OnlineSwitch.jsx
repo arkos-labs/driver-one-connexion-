@@ -145,15 +145,6 @@ export default function OnlineSwitch() {
         </span>
       </label>
       
-      {/* Small indicator for push status */}
-      <div 
-        className={`w-2 h-2 rounded-full ${
-          pushStatus === 'subscribed' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
-          pushStatus === 'denied' ? 'bg-red-500' :
-          'bg-gray-500'
-        }`}
-        title={`Push: ${pushStatus === 'subscribed' ? 'Activé' : pushStatus === 'denied' ? 'Bloqué' : 'Désactivé'}`}
-      />
     </div>
   );
 }

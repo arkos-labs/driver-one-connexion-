@@ -120,7 +120,6 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
       <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3 flex items-center justify-between backdrop-blur-md bg-white/90">
         <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="OC" className="h-7 w-7" />
           <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-800">Profil</h1>
         </div>
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
