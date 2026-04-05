@@ -350,9 +350,11 @@ export default function MissionDetails() {
     navigate("/missions");
   };
 
-  const { pickupInstructions, deliveryInstructions } = useMemo(() => {
+    const { pickupInstructions, deliveryInstructions, scheduleComment } = useMemo(() => {
     let p = null;
     let d = null;
+    let s = null;
+    
     const filter = (text) => {
       const t = text?.trim();
       if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
@@ -361,62 +363,52 @@ export default function MissionDetails() {
       if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
       return t;
     };
+
     if (mission?.pickup_instructions || mission?.delivery_instructions) {
       p = mission?.pickup_instructions || null;
       d = mission?.delivery_instructions || null;
     }
+
     const notes = mission?.notes;
-    if (!notes) return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
-    if (/enlèvement\s*:|livraison\s*:|dispatch\s*:/i.test(notes)) {
-      const parts = notes.includes('|') ? notes.split('|') : [notes];
+    if (!notes) {
+      return { 
+        pickupInstructions: filter(p), 
+        deliveryInstructions: filter(d),
+        scheduleComment: null
+      };
+    }
+
+    // Clean schedule comment from technical logs if present
+    // Format usually: "Pick: ... | Del: ... | Dispatch: Actual Comment"
+    if (/dispatch\s*:/i.test(notes)) {
+      const parts = notes.includes('|') ? notes.split('|') : (notes.includes('/') ? notes.split('/') : [notes]);
       parts.forEach(part => {
         const trimmed = part.trim();
         if (/enlèvement\s*:/i.test(trimmed)) {
           const m = trimmed.match(/enlèvement\s*:\s*(.*?)(?=livraison:|dispatch:|$)/i);
-          if (m) p = m[1].trim();
+          if (m && !p) p = m[1].trim();
         }
         if (/livraison\s*:/i.test(trimmed)) {
           const m = trimmed.match(/livraison\s*:\s*(.*?)(?=enlèvement:|dispatch:|$)/i);
-          if (m) d = m[1].trim();
+          if (m && !d) d = m[1].trim();
         }
         if (/dispatch\s*:/i.test(trimmed)) {
           const m = trimmed.match(/dispatch\s*:\s*(.*)/i);
-          if (m) {
-            const content = m[1].trim();
-            if (!p) p = content;
-            else if (!d) d = content;
-          }
+          if (m) s = m[1].trim();
         }
       });
-      if (!p && !d && /instructions\s*:/i.test(notes)) {
-        const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
-        if (match) {
-          const full = match[1].trim();
-          const cleanFull = full.replace(/\.$/, "");
-          if (cleanFull.includes('/')) {
-            const split = cleanFull.split('/');
-            p = split[0]?.trim();
-            d = split[1]?.trim();
-          } else {
-            p = cleanFull;
-          }
-        }
-      }
-    } else if (/instructions\s*:/i.test(notes)) {
-      const match = notes.match(/instructions\s*:\s*(.*?)(?=\||Email Client:|Phone:|Billing:|Email:|$)/is);
-      if (match) {
-        const full = match[1].trim();
-        const cleanFull = full.replace(/\.$/, "");
-        if (cleanFull.includes('/')) {
-          const split = cleanFull.split('/');
-          p = split[0]?.trim();
-          d = split[1]?.trim();
-        } else {
-          p = cleanFull;
-        }
-      }
     }
-    return { pickupInstructions: filter(p), deliveryInstructions: filter(d) };
+
+    // If no specific schedule comment found via regex, and notes isn't just technical logs
+    if (!s && notes && !/(pick|del|dispatch)\s*:/i.test(notes)) {
+      s = notes;
+    }
+
+    return { 
+      pickupInstructions: filter(p), 
+      deliveryInstructions: filter(d),
+      scheduleComment: filter(s)
+    };
   }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions]);
 
   if (loading) return <div className="p-4">Chargement...</div>;
@@ -815,10 +807,10 @@ export default function MissionDetails() {
                 </div>
               )}
 
-              {mission.notes && (
+              {scheduleComment && (
                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Commentaire sur l'horaire</p>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{mission.notes}"</p>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{scheduleComment}"</p>
                 </div>
               )}
             </div>
