@@ -491,14 +491,14 @@ export default function MissionDetails() {
                     </div>
                     <div>
                       <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 flex justify-between">
-                        <span>Service / Bureau</span>
+                        <span>Où a été déposé le colis ?</span>
                         {pendingAction === "DELIVER" && <span className="text-red-500">Requis</span>}
                       </label>
                       <input
                         type="text"
                         value={deliveryDepartment}
                         onChange={(e) => setDeliveryDepartment(e.target.value)}
-                        placeholder="Ex: Logistique, 3ème étage..."
+                        placeholder="Ex: Accueil, Gardien, Boîte aux lettres..."
                         className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
                       />
                     </div>
@@ -533,7 +533,7 @@ export default function MissionDetails() {
                   const photo = pendingPhoto;
                   
                   if (action === "DELIVER" && (!deliveryRecipient.trim() || !deliveryDepartment.trim())) {
-                    alert("Veuillez renseigner le nom et le service pour finaliser la livraison.");
+                    alert("Veuillez renseigner le nom du réceptionnaire et le lieu de dépôt pour finaliser la livraison.");
                     return;
                   }
 
@@ -744,7 +744,7 @@ export default function MissionDetails() {
                   <p className="text-sm font-bold text-slate-900">{mission.delivery_recipient || "—"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lieu de dépôt</p>
                   <p className="text-sm font-bold text-slate-900">{mission.delivery_department || "—"}</p>
                 </div>
               </div>

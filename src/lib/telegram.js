@@ -141,7 +141,7 @@ export const notifyDelivered = (order, driverName = "Chauffeur") => send(
     fmt("🆔 Référence", order?.id?.slice(0, 8).toUpperCase()) +
     fmt("📍 Livré à", order?.delivery_address || order?.delivery) +
     fmt("👤 Réceptionnaire", order?.delivery_recipient) +
-    fmt("🏢 Service", order?.delivery_department) +
+    fmt("📍 Lieu de dépôt", order?.delivery_department) +
     fmt("💬 Commentaire", order?.delivery_comment) +
     fmt("💰 Montant HT", order?.price_ht ? `${Number(order.price_ht).toFixed(2)} €` : null) +
     hr() +

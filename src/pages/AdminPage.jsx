@@ -702,7 +702,7 @@ export default function AdminPage() {
                                 <p className="text-xs font-bold text-slate-900">{o.delivery_recipient || "—"}</p>
                               </div>
                               <div className="flex-1 border-l border-slate-200/50 pl-3">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lieu de dépôt</p>
                                 <p className="text-xs font-bold text-slate-900">{o.delivery_department || "—"}</p>
                               </div>
                             </div>
