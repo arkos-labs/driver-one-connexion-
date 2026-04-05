@@ -33,7 +33,7 @@ export default function AuthPage() {
           navigate("/register");
           return;
         }
-        navigate("/profile");
+        navigate("/missions");
       } else {
         setPageLoading(false);
       }
@@ -70,7 +70,7 @@ export default function AuthPage() {
       return;
     }
 
-    navigate("/profile");
+    navigate("/missions");
   };
 
   const handleGoogleLogin = async () => {

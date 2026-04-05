@@ -33,7 +33,7 @@ export default function RegisterPage() {
                 }
 
                 if (profile && profile.role === 'courier') {
-                    navigate("/profile");
+                    navigate("/missions");
                 } else {
                     const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
                     const nameParts = fullName.trim().split(/\s+/);
@@ -122,7 +122,7 @@ export default function RegisterPage() {
                 if (upsertError) throw upsertError;
                 
                 alert("✅ Inscription réussie ! Votre compte est prêt.");
-                navigate("/profile");
+                navigate("/missions");
             }
         } catch (err) {
             alert("Erreur : " + err.message);
