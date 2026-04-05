@@ -113,18 +113,6 @@ export default function AuthPage() {
               </div>
             )}
 
-            {supabase.auth.getUser() && !pageLoading && (
-              <div className="text-center">
-                 <button 
-                    type="button"
-                    onClick={async () => { await supabase.auth.signOut(); window.location.reload(); }}
-                    className="mb-4 text-xs font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full uppercase tracking-wider"
-                  >
-                    Se déconnecter / Changer de compte
-                  </button>
-              </div>
-            )}
-
             <label className="grid gap-1">
               <span className="text-xs font-semibold text-gray-500">Email</span>
               <input
