@@ -26,19 +26,27 @@ export default function AuthPage() {
               .eq('id', session.user.id)
               .single();
 
+            if (profileError || !profile) {
+              // Nouveau compte : redirection vers register pour compléter le profil
+              clearTimeout(timer);
+              navigate("/register");
+              return;
+            }
+
             if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
               clearTimeout(timer);
               navigate("/admin");
               return;
             }
 
-            if (profileError || profile?.role !== 'courier') {
+            if (profile?.role === 'courier') {
+              clearTimeout(timer);
+              navigate("/missions");
+            } else {
+              // Role inconnu, on reste ici
               clearTimeout(timer);
               setPageLoading(false);
-              return;
             }
-            clearTimeout(timer);
-            navigate("/missions");
           } else {
             clearTimeout(timer);
             setPageLoading(false);
