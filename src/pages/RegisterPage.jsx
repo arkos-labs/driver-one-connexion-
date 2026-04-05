@@ -27,7 +27,7 @@ export default function RegisterPage() {
                     .single();
 
                 if (profile) {
-                    navigate("/missions");
+                    navigate("/profile");
                 } else {
                     const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
                     const nameParts = fullName.trim().split(/\s+/);
@@ -113,7 +113,7 @@ export default function RegisterPage() {
                 if (upsertError) throw upsertError;
                 
                 alert("✅ Inscription réussie ! Votre compte est prêt.");
-                navigate("/missions");
+                navigate("/profile");
             }
         } catch (err) {
             alert("Erreur : " + err.message);

@@ -26,7 +26,7 @@ export default function AuthPage() {
           setLoading(false);
           return;
         }
-        navigate("/missions");
+        navigate("/profile");
       }
     };
     checkSession();
@@ -61,7 +61,7 @@ export default function AuthPage() {
       return;
     }
 
-    navigate("/missions");
+    navigate("/profile");
   };
 
   const handleGoogleLogin = async () => {
