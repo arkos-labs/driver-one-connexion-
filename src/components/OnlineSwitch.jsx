@@ -99,23 +99,61 @@ export default function OnlineSwitch() {
       .eq('id', user.id);
   };
 
+  const [pushStatus, setPushStatus] = useState("checking"); // "checking", "denied", "subscribed", "unsubscribed"
+
+  useEffect(() => {
+    async function checkPush() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setPushStatus("unsupported");
+        return;
+      }
+      if (Notification.permission === "denied") {
+        setPushStatus("denied");
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.getSubscription();
+        setPushStatus(sub ? "subscribed" : "unsubscribed");
+      } catch (err) {
+        setPushStatus("error");
+      }
+    }
+    checkPush();
+  }, []);
+
   if (loading) return null;
 
   return (
-    <label className="oc-switch-wrap" title={online ? "En ligne" : "Hors ligne"}>
-      <span className={`oc-switch-label ${online ? "text-emerald-600" : "text-gray-400"}`}>
-        {online ? "EN LIGNE" : "HORS LIGNE"}
-      </span>
-      <span className="oc-switch">
-        <input
-          type="checkbox"
-          checked={online}
-          onChange={(e) => toggleStatus(e.target.checked)}
-          aria-label="Statut en ligne"
-        />
-        <span className="oc-switch__track" />
-        <span className="oc-switch__thumb" />
-      </span>
-    </label>
+    <div className="flex items-center gap-3">
+      <label className="oc-switch-wrap" title={online ? "En ligne" : "Hors ligne"}>
+        <span className={`oc-switch-label ${online ? "text-emerald-600" : "text-gray-400"}`}>
+          {online ? "EN LIGNE" : "HORS LIGNE"}
+        </span>
+        <span className={`oc-switch transition-all duration-300 ${
+          pushStatus === 'subscribed' ? 'ring-2 ring-emerald-400 ring-offset-2' : 
+          pushStatus === 'denied' ? 'ring-2 ring-red-400 ring-offset-2' : ''
+        }`}>
+          <input
+            type="checkbox"
+            checked={online}
+            onChange={(e) => toggleStatus(e.target.checked)}
+            aria-label="Statut en ligne"
+          />
+          <span className="oc-switch__track" />
+          <span className="oc-switch__thumb" />
+        </span>
+      </label>
+      
+      {/* Small indicator for push status */}
+      <div 
+        className={`w-2 h-2 rounded-full ${
+          pushStatus === 'subscribed' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' :
+          pushStatus === 'denied' ? 'bg-red-500' :
+          'bg-gray-500'
+        }`}
+        title={`Push: ${pushStatus === 'subscribed' ? 'Activé' : pushStatus === 'denied' ? 'Bloqué' : 'Désactivé'}`}
+      />
+    </div>
   );
 }

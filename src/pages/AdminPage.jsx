@@ -673,6 +673,24 @@ export default function AdminPage() {
                         <span className={`h-1.5 w-1.5 rounded-full ${d.is_online ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
                         {d.is_online ? 'En ligne' : 'Hors ligne'}
                       </button>
+                      
+                      <button
+                        onClick={async () => {
+                          const { data, error } = await supabase.functions.invoke('send-push', {
+                            body: {
+                              userId: d.id,
+                              title: '🔔 Test Notification',
+                              body: 'Si vous voyez ceci, les notifications push fonctionnent !'
+                            }
+                          });
+                          if (error) alert("Erreur push: " + error.message);
+                          else if (data?.success === false) alert("Avertissement: " + (data.message || "Non abonné"));
+                          else alert("Push envoyé ! Vérifiez le téléphone.");
+                        }}
+                        className="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase hover:bg-blue-200"
+                      >
+                        Tester Push
+                      </button>
                     </div>
                     <div className="mt-1 text-gray-600 text-xs">
                       {d.details?.phone_number || "Pas de numéro"} • {d.details?.company || "Indépendant"}
