@@ -151,6 +151,11 @@ export default function MissionDetails() {
       setMission(data);
       missionRef.current = data;
       
+      // Initialize delivery details from existing data if available
+      if (data.delivery_recipient) setDeliveryRecipient(data.delivery_recipient);
+      if (data.delivery_department) setDeliveryDepartment(data.delivery_department);
+      if (data.delivery_comment) setDeliveryComment(data.delivery_comment);
+      
       // Marquer comme vue si non déjà fait
       if (data.status === 'assigned' && !data.viewed_at) {
         supabase.from('orders')
@@ -248,6 +253,10 @@ export default function MissionDetails() {
       const patch = {};
       if (mission.status === "picked_up" || mission.status === "in_progress") {
         patch.delivery_photo_url = publicUrl;
+        // Even for a simple proof photo, let's save the delivery details if we have them
+        if (deliveryRecipient) patch.delivery_recipient = deliveryRecipient;
+        if (deliveryDepartment) patch.delivery_department = deliveryDepartment;
+        if (deliveryComment) patch.delivery_comment = deliveryComment;
       } else {
         patch.pickup_photo_url = publicUrl;
       }
@@ -459,42 +468,61 @@ export default function MissionDetails() {
               </button>
             </div>
 
-            <img src={pendingPhoto.dataUrl} alt="Preuve" className="h-48 w-full rounded-2xl object-cover border border-slate-100 shadow-sm" />
-
-            {pendingAction === "DELIVER" && (
-              <div className="mt-4 space-y-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Nom du réceptionnaire</label>
-                  <input
-                    type="text"
-                    value={deliveryRecipient}
-                    onChange={(e) => setDeliveryRecipient(e.target.value)}
-                    placeholder="M. Jean Dupont"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Service / Département</label>
-                  <input
-                    type="text"
-                    value={deliveryDepartment}
-                    onChange={(e) => setDeliveryDepartment(e.target.value)}
-                    placeholder="Accueil / Logistique / Marketing..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Commentaire (facultatif)</label>
-                  <textarea
-                    rows={2}
-                    value={deliveryComment}
-                    onChange={(e) => setDeliveryComment(e.target.value)}
-                    placeholder="Ex: Livré à l'accueil, colis intact..."
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all resize-none"
-                  />
+            {(pendingAction === "DELIVER" || (deliveryStages.includes(mission?.status) && pendingAction === "PROOF")) && (
+              <div className="mb-4 space-y-4">
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100/50">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-3 flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[8px]">!</span>
+                    Détails de réception
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 flex justify-between">
+                        <span>Qui a réceptionné ?</span>
+                        {pendingAction === "DELIVER" && <span className="text-red-500">Requis</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={deliveryRecipient}
+                        onChange={(e) => setDeliveryRecipient(e.target.value)}
+                        placeholder="Ex: M. Jean (Accueil)"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1 flex justify-between">
+                        <span>Service / Bureau</span>
+                        {pendingAction === "DELIVER" && <span className="text-red-500">Requis</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={deliveryDepartment}
+                        onChange={(e) => setDeliveryDepartment(e.target.value)}
+                        placeholder="Ex: Logistique, 3ème étage..."
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 placeholder:text-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Commentaire supplémentaire</label>
+                      <textarea
+                        rows={2}
+                        value={deliveryComment}
+                        onChange={(e) => setDeliveryComment(e.target.value)}
+                        placeholder="Infos utiles, état du colis..."
+                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 placeholder:text-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all resize-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
+
+            <div className="relative">
+              <img src={pendingPhoto.dataUrl} alt="Preuve" className="h-48 w-full rounded-2xl object-cover border border-slate-100 shadow-sm" />
+              <div className="absolute top-3 left-3 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[8px] font-black text-white uppercase tracking-widest">
+                Aperçu photo
+              </div>
+            </div>
 
             <div className="mt-5 grid gap-2">
               <button
