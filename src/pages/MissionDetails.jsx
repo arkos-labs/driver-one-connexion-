@@ -93,6 +93,10 @@ export default function MissionDetails() {
   const [driverName, setDriverName] = useState("Chauffeur");
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  const [deliveryRecipient, setDeliveryRecipient] = useState("");
+  const [deliveryDepartment, setDeliveryDepartment] = useState("");
+  const [deliveryComment, setDeliveryComment] = useState("");
+
   const [pickupOpen, setPickupOpen] = useState(true);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
 
@@ -263,7 +267,10 @@ export default function MissionDetails() {
     const patch = {
       status: "delivered",
       updated_at: now,
-      delivered_at: now
+      delivered_at: now,
+      delivery_recipient: deliveryRecipient,
+      delivery_department: deliveryDepartment,
+      delivery_comment: deliveryComment
     };
     await updateOrder(patch);
     if (mission) {
@@ -438,30 +445,84 @@ export default function MissionDetails() {
         </div>
       )}
       {pendingPhoto && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
-            <div className="text-sm font-semibold text-slate-900">Valider la photo</div>
-            <img src={pendingPhoto.dataUrl} alt="Preuve" className="mt-3 h-64 w-full rounded-2xl object-cover" />
-            <div className="mt-4 grid gap-2">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 overflow-y-auto">
+          <div className="w-full max-w-md my-8 rounded-3xl bg-white p-5 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm font-black uppercase tracking-wider text-slate-900">
+                {pendingAction === "DELIVER" ? "Finaliser la Livraison" : "Valider la photo"}
+              </div>
+              <button 
+                onClick={() => { setPendingPhoto(null); setPendingAction(null); }}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <XCircleIcon />
+              </button>
+            </div>
+
+            <img src={pendingPhoto.dataUrl} alt="Preuve" className="h-48 w-full rounded-2xl object-cover border border-slate-100 shadow-sm" />
+
+            {pendingAction === "DELIVER" && (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Nom du réceptionnaire</label>
+                  <input
+                    type="text"
+                    value={deliveryRecipient}
+                    onChange={(e) => setDeliveryRecipient(e.target.value)}
+                    placeholder="M. Jean Dupont"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Service / Département</label>
+                  <input
+                    type="text"
+                    value={deliveryDepartment}
+                    onChange={(e) => setDeliveryDepartment(e.target.value)}
+                    placeholder="Accueil / Logistique / Marketing..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Commentaire (facultatif)</label>
+                  <textarea
+                    rows={2}
+                    value={deliveryComment}
+                    onChange={(e) => setDeliveryComment(e.target.value)}
+                    placeholder="Ex: Livré à l'accueil, colis intact..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all resize-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 grid gap-2">
               <button
                 type="button"
-                className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
-                onClick={() => {
+                className={`w-full rounded-2xl py-4 text-sm font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] ${pendingAction === "DELIVER" ? 'bg-emerald-600 shadow-emerald-600/20' : 'bg-slate-900 shadow-slate-900/20'}`}
+                onClick={async () => {
                   const action = pendingAction;
                   const photo = pendingPhoto;
+                  
+                  if (action === "DELIVER" && (!deliveryRecipient.trim() || !deliveryDepartment.trim())) {
+                    alert("Veuillez renseigner le nom et le service pour finaliser la livraison.");
+                    return;
+                  }
+
                   setPendingPhoto(null);
                   setPendingAction(null);
-                  if (photo) savePhoto(photo.dataUrl, photo.name);
+                  
+                  if (photo) await savePhoto(photo.dataUrl, photo.name);
                   if (action === "DELIVER") {
-                    completeDelivery();
+                    await completeDelivery();
                   }
                 }}
               >
-                Valider la photo
+                {pendingAction === "DELIVER" ? "Confirmer la Livraison" : "Valider la photo"}
               </button>
               <button
                 type="button"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-4 text-sm font-bold text-slate-400 active:bg-slate-50 transition-colors"
                 onClick={() => {
                   setPendingPhoto(null);
                   setPendingAction(null);
@@ -639,6 +700,46 @@ export default function MissionDetails() {
               </div>
             </div>
           </details>
+
+          {mission.status === "delivered" && (
+            <div className="bg-white rounded-xl overflow-hidden shadow-sm border border-emerald-100 p-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <CheckIcon />
+                </div>
+                <h3 className="font-black uppercase text-xs tracking-wider text-emerald-600">Preuve de Livraison</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Réceptionnaire</p>
+                  <p className="text-sm font-bold text-slate-900">{mission.delivery_recipient || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Service</p>
+                  <p className="text-sm font-bold text-slate-900">{mission.delivery_department || "—"}</p>
+                </div>
+              </div>
+
+              {mission.delivery_comment && (
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Commentaire</p>
+                  <p className="text-sm font-medium text-slate-600 italic">"{mission.delivery_comment}"</p>
+                </div>
+              )}
+
+              {mission.delivery_photo_url && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Photo de preuve</p>
+                  <img 
+                    src={mission.delivery_photo_url} 
+                    alt="Preuve" 
+                    className="w-full h-48 object-cover rounded-xl border border-slate-100"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           <details className="bg-white rounded-[24px] p-5 shadow-sm border border-slate-100" open>
             <summary className="list-none cursor-pointer">

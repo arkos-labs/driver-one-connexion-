@@ -34,6 +34,8 @@ export default function AdminPage() {
 
   const [drivers, setDrivers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [archivedOrders, setArchivedOrders] = useState([]);
+  const [showArchive, setShowArchive] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -271,6 +273,25 @@ export default function AdminPage() {
       setOrders(data);
     }
   };
+
+  const fetchArchive = async () => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, profiles:driver_id(details)')
+      .eq('status', 'delivered')
+      .order('delivered_at', { ascending: false })
+      .limit(20);
+
+    if (!error && data) {
+      setArchivedOrders(data);
+    }
+  };
+
+  useEffect(() => {
+    if (authed && showArchive) {
+      fetchArchive();
+    }
+  }, [authed, showArchive]);
 
   const handleSignOut = () => {
     localStorage.removeItem(ADMIN_KEY);
@@ -643,6 +664,69 @@ export default function AdminPage() {
                 ))}
                 {orders.length === 0 && (
                   <div className="text-center py-8 text-slate-400 text-xs italic">Aucune mission en cours.</div>
+                )}
+              </div>
+
+              <div className="mt-8 pt-8 border-t border-slate-100">
+                <button 
+                  onClick={() => setShowArchive(!showArchive)}
+                  className="w-full flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <span>Archives des missions ({showArchive ? archivedOrders.length : 'cliquer pour voir'})</span>
+                  <span className={`transform transition-transform ${showArchive ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+
+                {showArchive && (
+                  <div className="mt-4 space-y-3">
+                    {archivedOrders.map((o) => (
+                      <div key={o.id} className="bg-white border border-slate-100 rounded-xl p-3 text-sm shadow-sm opacity-80">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-slate-400 text-[10px]">{o.id.slice(0, 8).toUpperCase()}</span>
+                          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">
+                            Livré le {new Date(o.delivered_at).toLocaleDateString([], { day: '2-digit', month: '2-digit' })}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold text-slate-800 line-clamp-1">{o.pickup_city} → {o.delivery_city}</div>
+                            <span className="text-[10px] font-bold text-slate-400">
+                              {new Date(o.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+
+                          <div className="p-2.5 bg-slate-50/80 rounded-lg border border-slate-100/50 space-y-1.5">
+                            <div className="flex items-start gap-4">
+                              <div className="flex-1">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Réceptionnaire</p>
+                                <p className="text-xs font-bold text-slate-900">{o.delivery_recipient || "—"}</p>
+                              </div>
+                              <div className="flex-1 border-l border-slate-200/50 pl-3">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Service</p>
+                                <p className="text-xs font-bold text-slate-900">{o.delivery_department || "—"}</p>
+                              </div>
+                            </div>
+                            {o.delivery_comment && (
+                              <div className="pt-1.5 border-t border-slate-200/50">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Commentaire</p>
+                                <p className="text-xs font-medium text-slate-600 leading-relaxed italic">"{o.delivery_comment}"</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-1">
+                            <span>Chauffeur: <span className="text-slate-600 font-bold">{o.profiles?.details?.full_name || 'Inconnu'}</span></span>
+                            {o.delivery_photo_url && (
+                              <a href={o.delivery_photo_url} target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline">Photo Preuve</a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {archivedOrders.length === 0 && (
+                      <div className="text-center py-6 text-slate-400 text-xs italic">Aucune mission archivée (60 derniers jours).</div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
