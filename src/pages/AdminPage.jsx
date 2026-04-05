@@ -376,7 +376,12 @@ export default function AdminPage() {
             company: form.company,
             siret: form.siret,
             email: form.email,
-            address: form.address
+            address: form.address,
+            vehicle_model: form.model,
+            vehicle_plate: form.plate,
+            vehicle_type: form.type,
+            iban: form.iban,
+            bic: form.bic
           }
         });
 
