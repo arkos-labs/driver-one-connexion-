@@ -20,10 +20,16 @@ export default function AuthPage() {
           .eq('id', session.user.id)
           .single();
 
+        if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+          navigate("/admin");
+          return;
+        }
+
         if (profileError || profile?.role !== 'courier') {
-          await supabase.auth.signOut();
-          setError("Accès refusé. Vous devez d'abord avoir un compte chauffeur.");
+          // Si l'utilisateur est un client (par défaut après login Google) ou n'a pas de profil
+          // on le renvoie vers la page d'inscription pour qu'il complète son profil chauffeur
           setLoading(false);
+          navigate("/register");
           return;
         }
         navigate("/profile");
@@ -69,7 +75,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + "/login",
+        redirectTo: window.location.origin + "/register",
       },
     });
     if (error) {

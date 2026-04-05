@@ -26,7 +26,12 @@ export default function RegisterPage() {
                     .eq('id', currentSession.user.id)
                     .single();
 
-                if (profile) {
+                if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+                    navigate("/admin");
+                    return;
+                }
+
+                if (profile && profile.role === 'courier') {
                     navigate("/profile");
                 } else {
                     const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
