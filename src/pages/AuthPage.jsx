@@ -10,37 +10,49 @@ export default function AuthPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
+    useEffect(() => {
+      // Sécurité : si la vérification prend plus de 2.5s, on affiche le formulaire de toute façon
+      const timer = setTimeout(() => {
+        setPageLoading(false);
+      }, 2500);
 
-          if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
-            navigate("/admin");
-            return;
-          }
+      const checkSession = async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .single();
 
-          if (profileError || profile?.role !== 'courier') {
+            if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+              clearTimeout(timer);
+              navigate("/admin");
+              return;
+            }
+
+            if (profileError || profile?.role !== 'courier') {
+              clearTimeout(timer);
+              setPageLoading(false);
+              return;
+            }
+            clearTimeout(timer);
+            navigate("/missions");
+          } else {
+            clearTimeout(timer);
             setPageLoading(false);
-            return;
           }
-          navigate("/missions");
-        } else {
+        } catch (e) {
+          console.error("Session check error:", e);
+          clearTimeout(timer);
           setPageLoading(false);
         }
-      } catch (e) {
-        console.error("Session check error:", e);
-        setPageLoading(false);
-      }
-    };
-    checkSession();
-  }, [navigate]);
+      };
+      
+      checkSession();
+      return () => clearTimeout(timer);
+    }, [navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();

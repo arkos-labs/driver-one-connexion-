@@ -17,6 +17,11 @@ export default function RegisterPage() {
     const [session, setSession] = useState(null);
 
     useEffect(() => {
+        // Sécurité : si la vérification prend plus de 2.5s, on affiche le formulaire de toute façon
+        const timer = setTimeout(() => {
+            setPageLoading(false);
+        }, 2500);
+
         const checkSession = async () => {
             try {
                 const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -29,11 +34,13 @@ export default function RegisterPage() {
                         .single();
 
                     if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
+                        clearTimeout(timer);
                         navigate("/admin");
                         return;
                     }
 
                     if (profile && profile.role === 'courier') {
+                        clearTimeout(timer);
                         navigate("/missions");
                     } else {
                         const fullName = currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name || "";
@@ -46,17 +53,21 @@ export default function RegisterPage() {
                             firstName: firstName,
                             lastName: lastName,
                         }));
+                        clearTimeout(timer);
                         setPageLoading(false);
                     }
                 } else {
+                    clearTimeout(timer);
                     setPageLoading(false);
                 }
             } catch (e) {
                 console.error("Session check error:", e);
+                clearTimeout(timer);
                 setPageLoading(false);
             }
         };
         checkSession();
+        return () => clearTimeout(timer);
     }, [navigate]);
 
     const handleGoogleLogin = async () => {
