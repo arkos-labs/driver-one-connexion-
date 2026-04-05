@@ -420,8 +420,8 @@ export default function AdminPage() {
       <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
         <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* menu removed */}
-            <h1 className="text-lg font-bold tracking-tight uppercase">Admin</h1>
+            <img src="/logo.svg" alt="Admin" className="h-8 w-8" />
+            <h1 className="text-lg font-bold tracking-tight uppercase text-slate-800">Admin</h1>
           </div>
           <div className="absolute left-1/2 top-1 -translate-x-1/2">
             <OnlineSwitch />
@@ -431,8 +431,9 @@ export default function AdminPage() {
 
         <main className="flex min-h-screen items-center justify-center px-4">
           <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div className="text-center">
-              <div className="text-[12px] font-semibold uppercase tracking-[0.2em] text-gray-400">One Connexion</div>
+            <div className="text-center mb-6">
+              <img src="/logo.svg" alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
+              <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
               <h1 className="mt-2 text-2xl font-bold">Accès admin</h1>
             </div>
 
@@ -487,8 +488,8 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
       <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-[#1d283a]">≡</span>
-          <h1 className="text-lg font-bold tracking-tight uppercase">Admin</h1>
+          <img src="/logo.svg" alt="Admin" className="h-8 w-8" />
+          <h1 className="text-lg font-bold tracking-tight uppercase text-slate-800">Admin</h1>
         </div>
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />

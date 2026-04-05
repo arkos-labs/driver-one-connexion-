@@ -123,7 +123,8 @@ export default function RegisterPage() {
             <main className="max-w-xl mx-auto px-4">
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                     <div className="text-center mb-6">
-                        <div className="text-[12px] font-semibold uppercase tracking-[0.2em] text-gray-400">One Connexion</div>
+                        <img src="/logo.svg" alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
+                        <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
                         <h1 className="mt-2 text-2xl font-bold">Inscription Chauffeur</h1>
                         <p className="text-sm text-gray-500 mt-1">Rejoignez notre équipe de coursiers</p>
                     </div>

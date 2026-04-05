@@ -82,8 +82,9 @@ export default function AuthPage() {
     <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a] overflow-hidden">
       <main className="flex min-h-screen items-center justify-center px-4 overflow-hidden">
         <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="text-center">
-            <div className="text-[12px] font-semibold uppercase tracking-[0.2em] text-gray-400">One Connexion</div>
+          <div className="text-center mb-6">
+            <img src="/logo.svg" alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
+            <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
             <h1 className="mt-2 text-2xl font-bold">Connexion Chauffeur</h1>
           </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "Dispatch One Connexion",
-  "short_name": "Dispatch",
-  "description": "Dispatch One Connexion",
+  "name": "One Connexion Driver",
+  "short_name": "One Connexion",
+  "description": "Plateforme de gestion de missions pour coursiers One Connexion",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -355,9 +355,27 @@ export default function MissionDetails() {
     let d = null;
     let s = null;
     
-    const filter = (text) => {
-      const t = text?.trim();
+    // Helper to extract text from potential JSON or technical strings
+    const cleanup = (val) => {
+      if (!val) return null;
+      const t = val.trim();
       if (!t || t === "." || t === "—" || t.toLowerCase() === "null") return null;
+      
+      // Handle JSON strings
+      if (t.startsWith('{') && t.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(t);
+          return parsed.instruction || parsed.notes || parsed.comment || parsed.message || t;
+        } catch (e) {
+          // Fall through if not valid JSON
+        }
+      }
+      return t;
+    };
+
+    const filter = (text) => {
+      const t = cleanup(text);
+      if (!t) return null;
       const isOnlyPhone = /^(\+33|0)[1-9](\s*\d{2}){4}$/.test(t.replace(/[\s.-]/g, ""));
       if (isOnlyPhone) return null;
       if (t.toLowerCase().startsWith("dimensions:") && t.length < 30) return null;
@@ -370,38 +388,41 @@ export default function MissionDetails() {
     }
 
     const notes = mission?.notes;
-    if (!notes) {
-      return { 
-        pickupInstructions: filter(p), 
-        deliveryInstructions: filter(d),
-        scheduleComment: null
-      };
+    
+    // Always consider delivery_schedule_notes as a primary source for S
+    if (mission?.delivery_schedule_notes) {
+      s = mission.delivery_schedule_notes;
     }
 
-    // Clean schedule comment from technical logs if present
-    // Format usually: "Pick: ... | Del: ... | Dispatch: Actual Comment"
-    if (/dispatch\s*:/i.test(notes)) {
+    if (notes) {
+      // Clean schedule comment from technical logs if present
+      // Format usually: "Pick: ... | Del: ... | Dispatch: Actual Comment"
+      const hasSeparators = notes.includes('|') || notes.includes('/');
       const parts = notes.includes('|') ? notes.split('|') : (notes.includes('/') ? notes.split('/') : [notes]);
+      
       parts.forEach(part => {
         const trimmed = part.trim();
-        if (/enlèvement\s*:/i.test(trimmed)) {
-          const m = trimmed.match(/enlèvement\s*:\s*(.*?)(?=livraison:|dispatch:|$)/i);
+        // Handle "enlèvement:" or "Pick:"
+        if (/enlèvement\s*:|Pick\s*:/i.test(trimmed)) {
+          const m = trimmed.match(/(?:enlèvement|Pick)\s*:\s*(.*?)(?=livraison:|Del:|dispatch:|Decision:|Status:|$)/i);
           if (m && !p) p = m[1].trim();
         }
-        if (/livraison\s*:/i.test(trimmed)) {
-          const m = trimmed.match(/livraison\s*:\s*(.*?)(?=enlèvement:|dispatch:|$)/i);
+        // Handle "livraison:" or "Del:"
+        if (/livraison\s*:|Del\s*:/i.test(trimmed)) {
+          const m = trimmed.match(/(?:livraison|Del)\s*:\s*(.*?)(?=enlèvement:|Pick:|dispatch:|Decision:|Status:|$)/i);
           if (m && !d) d = m[1].trim();
         }
+        // Handle "dispatch:" or "Note dispatch:"
         if (/dispatch\s*:/i.test(trimmed)) {
           const m = trimmed.match(/dispatch\s*:\s*(.*)/i);
-          if (m) s = m[1].trim();
+          if (m && !s) s = m[1].trim();
         }
       });
-    }
 
-    // If no specific schedule comment found via regex, and notes isn't just technical logs
-    if (!s && notes && !/(pick|del|dispatch)\s*:/i.test(notes)) {
-      s = notes;
+      // If no specific schedule comment found via regex, and notes isn't just technical logs
+      if (!s && !/(pick|del|dispatch|enlèvement|livraison)\s*:/i.test(notes)) {
+        s = notes;
+      }
     }
 
     return { 
@@ -409,7 +430,7 @@ export default function MissionDetails() {
       deliveryInstructions: filter(d),
       scheduleComment: filter(s)
     };
-  }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions]);
+  }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions, mission?.delivery_schedule_notes]);
 
   if (loading) return <div className="p-4">Chargement...</div>;
 
