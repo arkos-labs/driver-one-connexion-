@@ -44,9 +44,9 @@ export default function RegisterPage() {
                     const lastName = nameParts.slice(1).join(" ") || "";
                     setForm(prev => ({
                         ...prev,
-                        email: currentSession.user.email || "",
-                        firstName: firstName,
-                        lastName: lastName,
+                        email: currentSession.user.email || prev.email,
+                        firstName: firstName || prev.firstName,
+                        lastName: lastName || prev.lastName,
                     }));
                     setPageLoading(false);
                 }
@@ -56,24 +56,21 @@ export default function RegisterPage() {
             }
         };
 
-        // Listener pour les changements d'état (plus robuste pour OAuth mobile)
+        // Vérification initiale immédiate
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                checkUser(session);
+            } else {
+                if (isMounted) setPageLoading(false);
+            }
+        });
+
+        // Listener pour les changements d'état
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session && isMounted) {
                 await checkUser(session);
             } else if (!session && isMounted) {
                 setPageLoading(false);
-            }
-        });
-
-        // Vérification initiale du lien magique ou du hash OAuth
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                checkUser(session);
-            } else {
-                // Si après 3s on n'a rien, on affiche le formulaire vide
-                setTimeout(() => {
-                    if (isMounted) setPageLoading(false);
-                }, 3000);
             }
         });
 
@@ -84,15 +81,18 @@ export default function RegisterPage() {
     }, [navigate]);
 
     const handleGoogleLogin = async () => {
-        setLoading(true);
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: window.location.origin + "/register",
-            },
-        });
-        if (error) {
-            alert("Erreur : " + error.message + " (Vérifiez que Google est bien activé dans votre tableau de bord Supabase)");
+        try {
+            setLoading(true);
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + "/register",
+                },
+            });
+            if (error) throw error;
+        } catch (err) {
+            console.error("Google login error:", err);
+            alert("Erreur Google : " + err.message);
             setLoading(false);
         }
     };
@@ -221,46 +221,69 @@ export default function RegisterPage() {
                     </div>
 
                     <form onSubmit={handleRegister} className="space-y-6">
-                        {!session && (
-                            <section>
-                                <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Informations Personnelles</h2>
-                                <div className="grid gap-3">
-                                    <div className="grid grid-cols-2 gap-2">
+                        <section>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Informations Personnelles</h2>
+                            <div className="grid gap-3">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Prénom</span>
                                         <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Prénom" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Nom</span>
                                         <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Nom" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
                                     </div>
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm disabled:bg-gray-50" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="Mot de passe" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!session} />
                                 </div>
-                            </section>
-                        )}
-
-                        <section>
-                             <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">
-                                {session ? "Finaliser votre profil" : "Téléphone"}
-                             </h2>
-                             <div className="grid gap-3">
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Téléphone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
-                             </div>
+                                <div className="grid gap-1">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Numéro de téléphone</span>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="tel" placeholder="06 12 34 56 78" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                                </div>
+                                {!session && (
+                                    <>
+                                        <div className="grid gap-1">
+                                            <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Email</span>
+                                            <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                                        </div>
+                                        <div className="grid gap-1">
+                                            <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Mot de passe</span>
+                                            <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </section>
 
-
                         <section>
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Véhicule</h2>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Véhicule</h2>
                             <div className="grid gap-3">
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Modèle du véhicule" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} required />
+                                <div className="grid gap-1">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Modèle du véhicule</span>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="ex: Peugeot Partner" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} required />
+                                </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Immatriculation" value={form.plate} onChange={(e) => setForm({ ...form, plate: e.target.value })} required />
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Type (ex: Camion)" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} required />
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Immatriculation</span>
+                                        <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="AA-123-BB" value={form.plate} onChange={(e) => setForm({ ...form, plate: e.target.value })} required />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Type de véhicule</span>
+                                        <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="ex: Camion 12m³" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} required />
+                                    </div>
                                 </div>
                             </div>
                         </section>
 
                         <section>
-                            <h2 className="text-xs font-bold uppercase tracking-widest text-[#1d283a] mb-3">Paiement (IBAN)</h2>
+                            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-3">Paiement (RIB)</h2>
                             <div className="grid gap-3">
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-mono" placeholder="FR76..." value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} required />
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-mono" placeholder="BIC" value={form.bic} onChange={(e) => setForm({ ...form, bic: e.target.value })} required />
+                                <div className="grid gap-1">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">IBAN</span>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-mono uppercase" placeholder="FR76..." value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} required />
+                                </div>
+                                <div className="grid gap-1">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">BIC</span>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm font-mono uppercase" placeholder="BIC" value={form.bic} onChange={(e) => setForm({ ...form, bic: e.target.value.toUpperCase() })} required />
+                                </div>
                             </div>
                         </section>
 
@@ -269,7 +292,7 @@ export default function RegisterPage() {
                             disabled={loading}
                             className="w-full rounded-xl bg-[#1d283a] px-4 py-4 text-sm font-bold text-white shadow-lg shadow-gray-200 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70"
                         >
-                            {loading ? "Chargement..." : "S'inscrire et commencer"}
+                            {loading ? "Chargement..." : session ? "Finaliser mon inscription" : "S'inscrire et commencer"}
                         </button>
 
                         <div className="text-center">
