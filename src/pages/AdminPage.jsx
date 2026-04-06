@@ -831,7 +831,7 @@ export default function AdminPage() {
       {showChat && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col pt-10">
           <header className="px-4 py-4 border-b flex justify-between items-center">
-            <h2 className="font-bold text-lg uppercase">Tchat Support</h2>
+            <h2 className="font-bold text-lg uppercase">Messagerie Support</h2>
             <button onClick={() => setShowChat(false)} className="text-gray-400 font-bold p-2">Fermer</button>
           </header>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" ref={chatScrollRef}>

@@ -283,7 +283,7 @@ export default function ProfilePage() {
                 Informations personnelles
               </div>
               {!isEditing && (
-                <Link to="/chat" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">Support</Link>
+                <Link to="/chat" className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase">Messagerie</Link>
               )}
             </div>
             <div className="mt-4 grid gap-3 text-sm">
