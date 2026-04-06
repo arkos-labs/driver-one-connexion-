@@ -106,10 +106,11 @@ export default function AuthPage() {
     try {
       setLoading(true);
       setError(null);
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: window.location.origin + "/missions",
+          skipBrowserRedirect: true,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -117,6 +118,11 @@ export default function AuthPage() {
         },
       });
       if (error) throw error;
+      if (data?.url) {
+        window.location.assign(data.url);
+      } else {
+        throw new Error("URL de redirection non trouvée");
+      }
     } catch (err) {
       console.error("Google login error:", err);
       setError("Erreur de connexion Google : " + err.message);

@@ -83,13 +83,19 @@ export default function RegisterPage() {
     const handleGoogleLogin = async () => {
         try {
             setLoading(true);
-            const { error } = await supabase.auth.signInWithOAuth({
+            const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
                     redirectTo: window.location.origin + "/register",
+                    skipBrowserRedirect: true,
                 },
             });
             if (error) throw error;
+            if (data?.url) {
+              window.location.assign(data.url);
+            } else {
+              throw new Error("URL de redirection non trouvée");
+            }
         } catch (err) {
             console.error("Google login error:", err);
             alert("Erreur Google : " + err.message);
@@ -238,17 +244,15 @@ export default function RegisterPage() {
                                     <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Numéro de téléphone</span>
                                     <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="tel" placeholder="06 12 34 56 78" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
                                 </div>
+                                <div className="grid gap-1">
+                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Email</span>
+                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                                </div>
                                 {!session && (
-                                    <>
-                                        <div className="grid gap-1">
-                                            <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Email</span>
-                                            <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                                        </div>
-                                        <div className="grid gap-1">
-                                            <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Mot de passe</span>
-                                            <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-                                        </div>
-                                    </>
+                                    <div className="grid gap-1">
+                                        <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Mot de passe</span>
+                                        <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                                    </div>
                                 )}
                             </div>
                         </section>
