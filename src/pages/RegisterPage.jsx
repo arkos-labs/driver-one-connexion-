@@ -165,6 +165,7 @@ export default function RegisterPage() {
                 setSuccessMsg("Inscription enregistrée ! Un administrateur doit valider votre compte.");
                 supabase.auth.signOut();
                 setTimeout(() => navigate("/login"), 3000);
+                }
             }
         } catch (err) {
             console.error("Erreur Inscription:", err);
