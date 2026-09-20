@@ -252,13 +252,14 @@ export default function MissionDetails() {
   const [anomalyStep, setAnomalyStep] = useState("enlevement");
   const [anomalyType, setAnomalyType] = useState("");
   const [anomalyComment, setAnomalyComment] = useState("");
+  const [anomalyPointIndex, setAnomalyPointIndex] = useState(null);
   const [anomalySending, setAnomalySending] = useState(false);
   const [anomalies, setAnomalies] = useState([]);
 
   const loadAnomalies = async () => {
     const { data } = await supabase
       .from("mission_anomalies")
-      .select("id, step, type, comment, created_at, resolved")
+      .select("id, step, type, comment, created_at, resolved, point_index")
       .eq("mission_id", id)
       .order("created_at", { ascending: false });
     setAnomalies(data ?? []);
@@ -273,11 +274,12 @@ export default function MissionDetails() {
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
-  const openAnomaly = () => {
+  const openAnomaly = (pointIndex = null) => {
     const picked = ["picked_up", "in_progress", "en_cours", "on_delivery"].includes(mission?.status);
     setAnomalyStep(picked ? "livraison" : "enlevement");
     setAnomalyType("");
     setAnomalyComment("");
+    setAnomalyPointIndex(typeof pointIndex === 'number' ? pointIndex : null);
     setAnomalyOpen(true);
   };
 
@@ -291,6 +293,7 @@ export default function MissionDetails() {
       step: anomalyStep,
       type: anomalyType,
       comment: anomalyComment.trim() || null,
+      point_index: anomalyPointIndex,
     });
     setAnomalySending(false);
     if (error) return alert("Envoi impossible : " + error.message);
@@ -1687,6 +1690,18 @@ export default function MissionDetails() {
                           )}
 
                           {/* Les étapes sans adresse de livraison spécifique étaient gérées ici, mais elles sont maintenant incluses dans Section Livraison ci-dessus */}
+                          
+                          {/* Bouton Anomalie spécifique au point */}
+                          {!isDelivered && (
+                            <button
+                              type="button"
+                              onClick={() => openAnomaly(idx)}
+                              className="mt-3 w-full py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 font-bold text-[11px] uppercase tracking-wider active:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <XCircleIcon />
+                              Signaler un problème
+                            </button>
+                          )}
                         </div>
                       </details>
                     );
