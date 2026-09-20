@@ -32,7 +32,7 @@ export default function AuthPage() {
 
           if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
             navigate("/admin");
-          } else if (profile?.role === 'courier') {
+          } else if ((profile?.role === 'driver' || profile?.role === 'courier')) {
             navigate("/missions");
           } else {
             setPageLoading(false);
@@ -94,7 +94,12 @@ export default function AuthPage() {
         .eq('id', data.user.id)
         .single();
 
-      if (profileError || profile?.role !== 'courier') {
+      if (!profileError && profile?.role === 'admin') {
+        navigate("/admin");
+        return;
+      }
+
+      if (profileError || (profile?.role !== 'driver' && profile?.role !== 'courier')) {
         supabase.auth.signOut();
         setError("Accès refusé. Cette application est réservée aux coursiers.");
         setLoading(false);

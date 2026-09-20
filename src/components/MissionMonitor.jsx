@@ -56,8 +56,7 @@ export default function MissionMonitor() {
                     .from('orders')
                     .select('*', { count: 'exact', head: true })
                     .eq('driver_id', user.id)
-                    .neq('status', 'delivered')
-                    .neq('status', 'cancelled');
+                    .not('status', 'in', '("delivered","cancelled","livree","annulee")');
 
                 if (!error && count > 0) {
                     activeMissionsRef.current = count;
@@ -113,14 +112,26 @@ export default function MissionMonitor() {
             // --- B. Profile Status Monitor (Online/Offline) ---
             const handleStatusChange = (newStatus) => {
                 const oldStatus = localStorage.getItem("oc_online_status") === "true";
+                const lastStatusChangeTime = parseInt(localStorage.getItem("oc_last_status_change_time") || "0", 10);
+                const now = Date.now();
+
                 if (newStatus !== oldStatus) {
+                    // Ignore updates from Realtime if they happen immediately after a self-initiated logout
+                    // (within 2 seconds of the driver clicking disconnect)
+                    const selfInitiated = localStorage.getItem("oc_self_initiated_logout") === "true";
+                    const recentSelfChange = selfInitiated && (now - lastStatusChangeTime) < 2000;
+
                     localStorage.setItem("oc_online_status", String(newStatus));
+                    localStorage.setItem("oc_last_status_change_time", String(now));
                     window.dispatchEvent(new Event("oc_status_change"));
 
-                    if (newStatus === false) {
+                    if (newStatus === false && !recentSelfChange) {
+                        // Only show message if ADMIN disconnected this driver, not if driver self-logged out
                         if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
                         alert("Vous avez été passé HORS LIGNE par l'administrateur.");
                     }
+                    // Clear the self-initiated flag after handling
+                    localStorage.removeItem("oc_self_initiated_logout");
                 }
             };
 

@@ -206,6 +206,15 @@ export default function ProfilePage() {
         alert(`Déconnexion impossible : vous avez encore ${count} mission(s) en cours.`);
         return;
       }
+
+      // Flag that this logout is self-initiated, not admin action
+      localStorage.setItem("oc_self_initiated_logout", "true");
+      localStorage.setItem("oc_last_status_change_time", String(Date.now()));
+
+      // Marquer le chauffeur comme hors_service avant de déconnecter
+      await supabase.from('drivers')
+        .update({ status: 'hors_service' })
+        .eq('auth_id', user.id);
     }
 
     await supabase.auth.signOut();

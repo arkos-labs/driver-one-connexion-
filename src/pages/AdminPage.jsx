@@ -363,7 +363,7 @@ export default function AdminPage() {
         password: form.password,
         options: {
           data: {
-            role: 'courier',
+            role: 'driver',
             full_name: `${form.firstName} ${form.lastName}`.trim(),
             phone: form.phone,
             company: form.company,
@@ -375,11 +375,9 @@ export default function AdminPage() {
       if (data?.user) {
         const { error: profileError } = await supabase.from('profiles').upsert({
           id: data.user.id,
-          role: 'courier',
+          role: 'driver',
           full_name: `${form.firstName} ${form.lastName}`.trim(),
           phone: form.phone,
-          company: form.company,
-          siret: form.siret,
         });
 
         if (profileError) {
@@ -806,55 +804,116 @@ export default function AdminPage() {
       </div>
 
       {showChat && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col pt-10">
-          <header className="px-4 py-4 border-b flex justify-between items-center">
-            <h2 className="font-bold text-lg uppercase">Messagerie Support</h2>
-            <button onClick={() => setShowChat(false)} className="text-gray-400 font-bold p-2">Fermer</button>
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col pt-10">
+          <header className="px-6 py-5 border-b border-slate-700 bg-slate-800/40 backdrop-blur-md flex justify-between items-center sticky top-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-lg">💬</span>
+              </div>
+              <div>
+                <h2 className="font-bold text-lg text-white">Support</h2>
+                <p className="text-[10px] text-blue-300 font-medium">Messagerie chauffeurs</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChat(false)}
+              className="text-slate-400 hover:text-white hover:bg-slate-700 font-bold p-2 rounded-lg transition-all active:scale-95"
+            >
+              ✕
+            </button>
           </header>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" ref={chatScrollRef}>
-            {chatMessages.map((msg) => {
-              const isAdmin = msg.is_admin_message === true;
-              return (
-                <div key={msg.id} className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">
-                      {isAdmin ? 'Moi (Admin)' : (msg.profiles?.full_name || 'Chauffeur')}
-                    </span>
-                    <span className="text-[9px] text-gray-300">
-                      {new Date(msg.created_at).toLocaleTimeString()}
-                    </span>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 scroll-smooth" ref={chatScrollRef}>
+            {chatMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                <div className="text-5xl mb-3">💭</div>
+                <p className="font-medium">Aucun message pour le moment</p>
+                <p className="text-xs text-slate-500 mt-1">Les chauffeurs apparaîtront ici</p>
+              </div>
+            ) : (
+              chatMessages.map((msg, idx) => {
+                const isAdmin = msg.is_admin_message === true;
+                const senderName = isAdmin ? 'Admin' : (msg.profiles?.full_name || 'Chauffeur');
+                const initials = senderName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                const showAvatar = idx === 0 || chatMessages[idx - 1]?.sender_id !== msg.sender_id;
+
+                return (
+                  <div key={msg.id} className={`flex gap-3 ${isAdmin ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {showAvatar && (
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md ${
+                        isAdmin
+                          ? 'bg-gradient-to-br from-blue-600 to-blue-700'
+                          : 'bg-gradient-to-br from-emerald-500 to-emerald-600'
+                      }`}>
+                        {initials}
+                      </div>
+                    )}
+                    {!showAvatar && <div className="w-8" />}
+
+                    <div className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'} max-w-xs`}>
+                      {showAvatar && (
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-xs font-semibold text-slate-300">
+                            {senderName}
+                          </span>
+                          <span className="text-[9px] text-slate-500 font-medium">
+                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className={`px-4 py-2.5 rounded-2xl text-sm font-medium backdrop-blur-sm transition-all transform hover:scale-105 ${
+                        isAdmin
+                          ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-br-none shadow-lg'
+                          : 'bg-slate-700 text-slate-50 rounded-bl-none shadow-md hover:bg-slate-600'
+                      } ${msg.is_optimistic ? 'opacity-75' : ''}`}>
+                        {msg.content}
+                      </div>
+                    </div>
                   </div>
-                  <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${isAdmin ? 'bg-blue-600 text-white rounded-tr-none shadow-sm' : 'bg-white border border-gray-100 text-slate-700 rounded-tl-none shadow-sm'}`}>
-                    {msg.content}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
 
             {typingStatus && (
-              <div className="flex items-center gap-2 py-2 px-1">
-                <div className="flex gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce [animation-delay:-0.3s]"></span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce [animation-delay:-0.15s]"></span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-bounce"></span>
+              <div className="flex items-center gap-3 py-3 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-xs font-bold text-white shadow-md">
+                  🔤
                 </div>
-                <span className="text-[10px] font-bold text-blue-500 italic animate-pulse">
+                <div className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-700 rounded-2xl rounded-bl-none">
+                  <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{animationDelay: '0s'}}></span>
+                  <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{animationDelay: '0.2s'}}></span>
+                  <span className="h-2 w-2 rounded-full bg-slate-400 animate-bounce" style={{animationDelay: '0.4s'}}></span>
+                </div>
+                <span className="text-[11px] font-semibold text-amber-300">
                   {typingStatus}
                 </span>
               </div>
             )}
           </div>
-          <form onSubmit={sendAdminChat} className="p-4 border-t bg-white flex gap-2 mb-10">
+
+          <form onSubmit={sendAdminChat} className="px-6 py-4 border-t border-slate-700 bg-slate-800/40 backdrop-blur-md mb-10 flex gap-3">
             <input
-              className="flex-1 bg-slate-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
-              placeholder="Répondre..."
+              className="flex-1 bg-slate-700 text-slate-50 rounded-full px-5 py-3 text-sm font-medium placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all focus:bg-slate-600 focus:shadow-lg focus:shadow-blue-500/20"
+              placeholder="Écrire un message..."
               value={newChatMsg}
               onChange={(e) => {
                 setNewChatMsg(e.target.value);
                 handleTyping();
               }}
+              disabled={loading}
             />
-            <button type="submit" className="bg-blue-600 text-white px-6 rounded-xl font-bold text-sm uppercase tracking-wide hover:bg-blue-700 active:scale-95 transition-all">Envoi</button>
+            <button
+              type="submit"
+              disabled={loading || !newChatMsg.trim()}
+              className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 rounded-full font-bold text-sm uppercase tracking-wider hover:from-blue-700 hover:to-blue-600 active:scale-95 transition-all shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center justify-center min-w-fit"
+            >
+              {loading ? (
+                <span className="animate-spin">⟳</span>
+              ) : (
+                '⬆'
+              )}
+            </button>
           </form>
         </div>
       )}

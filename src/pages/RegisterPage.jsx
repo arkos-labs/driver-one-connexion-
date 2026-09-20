@@ -10,7 +10,7 @@ export default function RegisterPage() {
     const [successMsg, setSuccessMsg] = useState("");
 
     const [form, setForm] = useState({
-        firstName: "", lastName: "",
+        fullName: "",
         phone: "", email: "", password: "",
     });
 
@@ -34,7 +34,7 @@ export default function RegisterPage() {
 
                 if (profile?.role === 'admin' || profile?.role === 'super_admin' || profile?.role === 'dispatcher') {
                     navigate("/admin");
-                } else if (profile && profile.role === 'courier') {
+                } else if (profile && (profile.role === 'driver' || profile.role === 'courier')) {
                     navigate("/missions");
                 } else {
                     setForm(prev => ({
@@ -126,8 +126,8 @@ export default function RegisterPage() {
                     password: form.password,
                     options: {
                         data: {
-                            role: 'courier',
-                            full_name: `${form.firstName} ${form.lastName}`.trim(),
+                            role: 'driver',
+                            full_name: form.fullName.trim(),
                             phone: form.phone,
                         }
                     }
@@ -135,24 +135,20 @@ export default function RegisterPage() {
 
                 if (error) throw error;
 
-                if (!data.session) {
-                    setSuccessMsg("Un email de confirmation vous a été envoyé. Veuillez cliquer sur le lien pour activer votre compte.");
-                    setLoading(false);
-                    return;
-                }
-
                 userId = data.user?.id;
             }
 
-            if (userId) {
-                const fullName = `${form.firstName} ${form.lastName}`.trim();
+            if (userId || !session) { // Proceed to create driver profile even if session is missing (depends on RLS, but if email confirm is OFF it works)
+                const finalUserId = userId || data?.user?.id;
+                const fullName = form.fullName.trim();
 
-                const { error: profileError } = await supabase.from('profiles').upsert({
-                    id: userId,
-                    role: 'courier',
-                    full_name: fullName,
-                    phone: form.phone,
-                });
+                if (finalUserId) {
+                    const { error: profileError } = await supabase.from('profiles').upsert({
+                        id: finalUserId,
+                        role: 'driver',
+                        full_name: fullName,
+                        phone: form.phone,
+                    });
 
                 if (profileError) throw profileError;
 
@@ -160,8 +156,8 @@ export default function RegisterPage() {
                     auth_id: userId,
                     name: fullName,
                     phone: form.phone,
-                    status: 'indisponible',
-                    approved: false,
+                    // hors_service tant qu'un administrateur n'a pas validé le compte
+                    status: 'hors_service',
                 }, { onConflict: 'auth_id' });
 
                 if (driverError) throw driverError;
@@ -250,30 +246,24 @@ export default function RegisterPage() {
                         )}
                     </div>
 
-                    <form onSubmit={handleRegister} className="space-y-4">
-                        <div className="grid gap-3">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="grid gap-1">
-                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Prénom</span>
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Prénom" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required />
-                                </div>
-                                <div className="grid gap-1">
-                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Nom</span>
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" placeholder="Nom" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required />
-                                </div>
+                    <form onSubmit={handleRegister} className="space-y-5">
+                        <div className="grid gap-4">
+                            <div className="grid gap-1.5">
+                                <span className="text-xs font-semibold text-gray-500 ml-1">Nom complet</span>
+                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" placeholder="Jean Dupont" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />
                             </div>
-                            <div className="grid gap-1">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Email</span>
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                            <div className="grid gap-1.5">
+                                <span className="text-xs font-semibold text-gray-500 ml-1">Email</span>
+                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
                             </div>
-                            <div className="grid gap-1">
-                                <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Numéro de téléphone</span>
-                                <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="tel" placeholder="06 12 34 56 78" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                            <div className="grid gap-1.5">
+                                <span className="text-xs font-semibold text-gray-500 ml-1">Numéro de téléphone</span>
+                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="tel" placeholder="06 12 34 56 78" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
                             </div>
                             {!session && (
-                                <div className="grid gap-1">
-                                    <span className="text-[10px] font-semibold text-gray-400 uppercase ml-1">Mot de passe</span>
-                                    <input className="rounded-xl border border-gray-200 px-3 py-3 text-sm" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                                <div className="grid gap-1.5">
+                                    <span className="text-xs font-semibold text-gray-500 ml-1">Mot de passe</span>
+                                    <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
                                 </div>
                             )}
                         </div>

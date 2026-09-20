@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
@@ -83,10 +83,114 @@ function formatDateTime(value) {
       hour: "2-digit",
       minute: "2-digit",
     });
-  } catch {
-    return "—";
+  } catch (e) {
+    return value;
   }
 }
+
+// Composant pour formater les notes proprement
+const ParsedNotes = ({ text }) => {
+  if (!text) return null;
+
+  const enlevementMatch = text.match(/Enl[èe]vement contact:\s*(.*?)(?=\n|$)/i);
+  const livraisonMatch = text.match(/Livraison contact:\s*(.*?)(?=\n|$)/i);
+  const notesMatch = text.match(/Notes:\s*([\s\S]*)/i);
+
+  if (!enlevementMatch && !livraisonMatch && !notesMatch) {
+    return (
+      <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+        <p className="text-[9px] font-black text-slate-400 uppercase mb-2 tracking-wider">Notes</p>
+        <p className="text-sm font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">{text}</p>
+      </div>
+    );
+  }
+
+  const pickup = splitContact(enlevementMatch?.[1]);
+  const dropoff = splitContact(livraisonMatch?.[1]);
+  const extra = notesMatch?.[1]?.trim();
+
+  return (
+    <div className="space-y-2.5">
+      {pickup && <ContactCard label="Enlèvement" tone="amber" {...pickup} />}
+      {dropoff && <ContactCard label="Livraison" tone="emerald" {...dropoff} />}
+      {extra && (
+        <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+          <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Instructions</p>
+          <p className="text-sm font-medium text-slate-800 leading-relaxed whitespace-pre-wrap">{extra}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// "jean  06 59 59 52 6" -> { name: "jean", phone: "06 59 59 52 6" }
+function splitContact(raw) {
+  const t = (raw || "").trim();
+  if (!t) return null;
+  const m = t.match(/^(.*?)\s*((?:\+|0)[\d\s.\-*/()]{5,})$/);
+  const name = (m ? m[1] : t).replace(/[\s—–-]+$/, "").trim();
+  const phone = m ? m[2].trim() : "";
+  if (!name && !phone) return null;
+  return { name, phone };
+}
+
+function ContactCard({ label, tone, name, phone }) {
+  const dial = phone.replace(/[^\d+]/g, "");
+  const dot = tone === "amber" ? "bg-amber-500" : "bg-emerald-500";
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-200/70 bg-white">
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+          {label}
+        </p>
+        <p className="mt-0.5 text-[15px] font-semibold text-slate-900 truncate capitalize">{name || "Contact"}</p>
+        {phone && <p className="text-[13px] text-slate-500 tabular-nums">{phone}</p>}
+      </div>
+      {dial.length >= 6 && (
+        <a
+          href={`tel:${dial}`}
+          aria-label={`Appeler ${name || label}`}
+          className="shrink-0 grid h-11 w-11 place-items-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 active:bg-slate-200 transition-colors"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </a>
+      )}
+    </div>
+  );
+}
+
+const ANOMALIES = {
+  enlevement: [
+    "Adresse d'enlèvement introuvable",
+    "Adresse d'enlèvement incorrecte",
+    "Expéditeur absent / injoignable",
+    "Numéro de téléphone incorrect",
+    "Colis non prêt",
+    "Colis trop gros / trop lourd",
+    "Colis endommagé ou mal emballé",
+    "Nombre de colis différent",
+    "Accès impossible (code, digicode, fermé)",
+    "Refus de remise du colis",
+  ],
+  livraison: [
+    "Adresse de livraison introuvable",
+    "Adresse de livraison incorrecte",
+    "Destinataire absent / injoignable",
+    "Numéro de téléphone incorrect",
+    "Refus du colis par le destinataire",
+    "Colis endommagé",
+    "Accès impossible (code, digicode, fermé)",
+    "Établissement fermé",
+    "Livraison partielle",
+  ],
+  general: [
+    "Retard important (trafic)",
+    "Panne ou accident du véhicule",
+    "Problème de stationnement / amende",
+    "Autre",
+  ],
+};
 
 export default function MissionDetails() {
   const { id } = useParams();
@@ -143,6 +247,57 @@ export default function MissionDetails() {
 
   const pickupStages = ["assigned", "accepted", "dispatched", "driver_accepted", "arrived_pickup", "en_attente", "confirmee"];
   const deliveryStages = ["picked_up", "in_progress", "on_delivery", "en_cours"];
+
+  const [anomalyOpen, setAnomalyOpen] = useState(false);
+  const [anomalyStep, setAnomalyStep] = useState("enlevement");
+  const [anomalyType, setAnomalyType] = useState("");
+  const [anomalyComment, setAnomalyComment] = useState("");
+  const [anomalySending, setAnomalySending] = useState(false);
+  const [anomalies, setAnomalies] = useState([]);
+
+  const loadAnomalies = async () => {
+    const { data } = await supabase
+      .from("mission_anomalies")
+      .select("id, step, type, comment, created_at, resolved")
+      .eq("mission_id", id)
+      .order("created_at", { ascending: false });
+    setAnomalies(data ?? []);
+  };
+
+  useEffect(() => {
+    loadAnomalies();
+    const channel = supabase
+      .channel(`driver-anomalies-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mission_anomalies", filter: `mission_id=eq.${id}` }, () => loadAnomalies())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
+
+  const openAnomaly = () => {
+    const picked = ["picked_up", "in_progress", "en_cours", "on_delivery"].includes(mission?.status);
+    setAnomalyStep(picked ? "livraison" : "enlevement");
+    setAnomalyType("");
+    setAnomalyComment("");
+    setAnomalyOpen(true);
+  };
+
+  const submitAnomaly = async () => {
+    if (!anomalyType) return alert("Choisissez le type d'anomalie.");
+    if (anomalyType === "Autre" && !anomalyComment.trim()) return alert("Décrivez le problème.");
+    setAnomalySending(true);
+    const { error } = await supabase.from("mission_anomalies").insert({
+      mission_type: mission?.type === "navette" ? "navette" : "order",
+      mission_id: id,
+      step: anomalyStep,
+      type: anomalyType,
+      comment: anomalyComment.trim() || null,
+    });
+    setAnomalySending(false);
+    if (error) return alert("Envoi impossible : " + error.message);
+    setAnomalyOpen(false);
+    loadAnomalies();
+    alert("Anomalie envoyée à One Connexion.");
+  };
 
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
@@ -240,8 +395,8 @@ export default function MissionDetails() {
           }
           else if (payload.eventType === 'UPDATE') {
             const newMission = { ...payload.new, type: 'order' };
-            if (newMission.status === 'cancelled') {
-              setModalMessage("La course a été annulée par l'administrateur.");
+            if (newMission.status === 'cancelled' || newMission.status === 'annulee') {
+              setModalMessage("La course a été annulée.");
               setShowModal(true);
               return;
             }
@@ -370,20 +525,13 @@ export default function MissionDetails() {
     
     if (mission?.type === 'navette') {
       try {
-        await supabase.from('orders').insert({
-          user_id: mission.user_id,
-          driver_id: mission.driver_id,
-          status: 'delivered',
-          name: mission.name,
-          pickup_address: mission.pickup_address,
-          dropoff_address: mission.dropoff_address,
-          stops: mission.stops,
-          created_at: now,
-          delivered_at: now,
-          delivery_recipient: deliveryRecipient,
-          delivery_department: deliveryDepartment,
-          delivery_comment: deliveryComment
+        const { error: histError } = await supabase.rpc('record_navette_delivery', {
+          p_navette_id: id,
+          p_recipient: deliveryRecipient,
+          p_department: deliveryDepartment,
+          p_comment: deliveryComment,
         });
+        if (histError) throw histError;
       } catch(e) { console.error("Error saving navette history:", e); }
       
       const patch = {
@@ -468,15 +616,20 @@ export default function MissionDetails() {
       status: "en_attente",
       driver_id: null,
       refused_by_driver: driverName || null,
-      picked_up_at: null,
-      driver_accepted_at: null,
-      pickup_photo_url: null,
-      delivery_photo_url: null,
-      delivery_signature_url: null,
       updated_at: now
     };
 
-    await updateOrder(patch);
+    setSaving(true);
+    const { error } = await supabase.rpc('driver_decline', {
+      p_type: mission?.type === 'navette' ? 'navette' : 'order',
+      p_id: id,
+      p_driver_name: driverName || null,
+    });
+    setSaving(false);
+    if (error) {
+      alert("Désistement impossible : " + error.message);
+      return;
+    }
     if (mission) {
       notifyDriverDeclined({ ...mission, ...patch }, driverName);
     }
@@ -562,7 +715,7 @@ export default function MissionDetails() {
     return { 
       pickupInstructions: filter(p), 
       deliveryInstructions: filter(d),
-      scheduleComment: filter(s)
+      scheduleComment: filter(s)?.replace(/Pickup contact/gi, 'Enlèvement contact').replace(/Dropoff contact/gi, 'Livraison contact')
     };
   }, [mission?.notes, mission?.pickup_instructions, mission?.delivery_instructions, mission?.delivery_schedule_notes]);
 
@@ -599,6 +752,60 @@ export default function MissionDetails() {
 
   return (
     <div className="min-h-screen bg-paper text-ink">
+      {anomalyOpen && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/40" onClick={() => setAnomalyOpen(false)}>
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-[28px] sm:rounded-[28px] bg-white p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Signaler une anomalie</h3>
+              <button onClick={() => setAnomalyOpen(false)} className="p-1 text-slate-400"><XCircleIcon /></button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl mb-4">
+              {[["enlevement", "Enlèvement"], ["livraison", "Livraison"], ["general", "Autre"]].map(([k, l]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setAnomalyStep(k); setAnomalyType(""); }}
+                  className={`py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-colors ${anomalyStep === k ? "bg-white text-slate-900 shadow" : "text-slate-500"}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-1.5">
+              {ANOMALIES[anomalyStep].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setAnomalyType(t)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-bold transition-colors ${anomalyType === t ? "border-red-500 bg-red-50 text-red-700" : "border-slate-200 text-slate-800 active:bg-slate-50"}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              rows={3}
+              value={anomalyComment}
+              onChange={(e) => setAnomalyComment(e.target.value)}
+              placeholder={anomalyType === "Autre" ? "Décrivez le problème (obligatoire)" : "Précisions (facultatif)"}
+              className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-red-500 resize-none"
+            />
+
+            <button
+              type="button"
+              disabled={anomalySending || !anomalyType}
+              onClick={submitAnomaly}
+              className="mt-4 w-full rounded-2xl py-4 bg-red-600 text-white text-sm font-black uppercase tracking-widest shadow-lg disabled:opacity-40 active:scale-[0.98] transition-all"
+            >
+              {anomalySending ? "Envoi…" : "Envoyer à One Connexion"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal enlèvement standard */}
       {standardPickupModal && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4 overflow-y-auto">
@@ -782,7 +989,7 @@ export default function MissionDetails() {
       {deliveryModal && (() => {
         const stops = Array.isArray(mission.stops) ? mission.stops : [];
         const allPoints = [
-          { address: mission.pickup_address, label: "Départ", type: "pickup", deliveryAddress: null, deliveryContactName: null },
+          { address: mission.pickup_address, label: "Départ", type: "pickup", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
           ...stops.map((s, i) => ({
             address: s.address,
             contact_name: s.contactName || s.contact_name,
@@ -792,8 +999,9 @@ export default function MissionDetails() {
             type: "stop",
             deliveryAddress: s.deliveryAddress || s.delivery_address || null,
             deliveryContactName: s.deliveryContactName || s.delivery_contact_name || null,
+            deliveryContactPhone: s.deliveryContactPhone || s.delivery_contact_phone || null,
           })),
-          { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null },
+          { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
         ];
         // Other picked-up but not yet delivered stops
         const otherPickedUp = completedStops.filter(
@@ -841,6 +1049,8 @@ export default function MissionDetails() {
           // Mark all selected as delivered
           setDeliveredPickups(prev => [...new Set([...prev, ...indicesToDeliver])]);
 
+
+
           // Save to Supabase
           const newProgress = { ...(mission.point_progress || {}) };
           const deliveredAt = new Date().toISOString();
@@ -864,24 +1074,15 @@ export default function MissionDetails() {
           if (newDeliveredPickupsCount === totalPoints) {
             if (mission?.type === 'navette') {
               try {
-                await supabase.from('orders').insert({
-                  user_id: mission.user_id,
-                  driver_id: mission.driver_id,
-                  status: 'delivered',
-                  name: mission.name,
-                  pickup_address: mission.pickup_address,
-                  dropoff_address: mission.dropoff_address,
-                  stops: mission.stops,
-                  point_progress: newProgress,
-                  created_at: deliveredAt,
-                  delivered_at: deliveredAt,
-                  picked_up_at: mission.picked_up_at || newProgress?.['0']?.pickedUpAt || null,
-                  delivery_recipient: deliveryRecipient,
-                  delivery_department: deliveryDepartment,
-                  delivery_comment: deliveryComment,
-                  delivery_photo_url: publicUrl,
-                  tracking_code: mission.tracking_code
+                const { error: histError } = await supabase.rpc('record_navette_delivery', {
+                  p_navette_id: id,
+                  p_recipient: deliveryRecipient,
+                  p_department: deliveryDepartment,
+                  p_comment: deliveryComment,
+                  p_photo_url: publicUrl || null,
+                  p_point_progress: newProgress,
                 });
+                if (histError) throw histError;
               } catch(e) { console.error("Error saving navette history:", e); }
 
               const patch = {
@@ -1213,7 +1414,7 @@ export default function MissionDetails() {
           {(isNavette || (Array.isArray(mission.stops) && mission.stops.length > 0)) && (() => {
             const stops = Array.isArray(mission.stops) ? mission.stops : [];
             const allPoints = [
-              { address: mission.pickup_address, label: "Départ", type: "pickup", deliveryAddress: null, deliveryContactName: null },
+              { address: mission.pickup_address, label: "Départ", type: "pickup", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
               ...stops.map((s, i) => ({
                 address: typeof s === 'string' ? s : s.address,
                 contact_name: typeof s === 'string' ? null : (s.contactName || s.contact_name),
@@ -1223,8 +1424,9 @@ export default function MissionDetails() {
                 type: "stop",
                 deliveryAddress: typeof s === 'string' ? null : (s.deliveryAddress || s.delivery_address || null),
                 deliveryContactName: typeof s === 'string' ? null : (s.deliveryContactName || s.delivery_contact_name || null),
+                deliveryContactPhone: typeof s === 'string' ? null : (s.deliveryContactPhone || s.delivery_contact_phone || null),
               })),
-              { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null },
+              { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
             ];
             const totalPoints = allPoints.length;
             const pickedCount = completedStops.length;
@@ -1364,9 +1566,17 @@ export default function MissionDetails() {
                               {point.address}
                             </p>
                             {point.contact_name && (
-                              <p className="text-xs text-muted mt-0.5">
-                                {point.contact_name}{point.contact_phone ? ` — ${point.contact_phone}` : ''}
-                              </p>
+                              <div className="text-xs text-muted mt-0.5 flex items-center gap-1">
+                                <span>{point.contact_name}</span>
+                                {point.contact_phone && (
+                                  <>
+                                    <span>—</span>
+                                    <a href={`tel:${point.contact_phone}`} className="text-amber-600 font-bold hover:underline">
+                                      {point.contact_phone}
+                                    </a>
+                                  </>
+                                )}
+                              </div>
                             )}
                             {point.notes && <p className="text-[10px] text-muted mt-0.5 italic">{point.notes}</p>}
 
@@ -1399,7 +1609,7 @@ export default function MissionDetails() {
                                 {mission.point_progress?.[idx]?.pickupDescription && (
                                   <div>
                                     <p className="text-[10px] font-bold text-amber-600/70 uppercase tracking-widest">Marchandise</p>
-                                    <p className="text-xs font-medium text-amber-800 italic">"{mission.point_progress[idx].pickupDescription}"</p>
+                                    <p className="text-xs font-medium text-amber-800 italic">{mission.point_progress[idx].pickupDescription}</p>
                                   </div>
                                 )}
                                 <button type="button" onClick={() => undoPickedUp(idx)} className="mt-2 text-[10px] font-bold text-slate-400 underline">
@@ -1420,7 +1630,22 @@ export default function MissionDetails() {
                                     {point.deliveryAddress}
                                   </p>
                                   {point.deliveryContactName && (
-                                    <p className="text-xs text-muted mt-0.5">{point.deliveryContactName}</p>
+                                    <div className="text-xs text-muted mt-0.5">
+                                      {point.deliveryContactName.match(/^\d+$/) ? (
+                                        <a href={`tel:${point.deliveryContactName}`} className="text-emerald-600 font-bold hover:underline">
+                                          {point.deliveryContactName}
+                                        </a>
+                                      ) : (
+                                        <div>
+                                          <p>{point.deliveryContactName}</p>
+                                          {point.deliveryContactPhone && (
+                                            <a href={`tel:${point.deliveryContactPhone}`} className="text-emerald-600 font-bold hover:underline">
+                                              {point.deliveryContactPhone}
+                                            </a>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
                                   )}
                                 </>
                               ) : (
@@ -1669,7 +1894,7 @@ export default function MissionDetails() {
               {mission.delivery_comment && (
                 <div className="mb-4">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Commentaire</p>
-                  <p className="text-sm font-medium text-slate-600 italic">"{mission.delivery_comment}"</p>
+                  <p className="text-sm font-medium text-slate-600 italic">{mission.delivery_comment}</p>
                 </div>
               )}
 
@@ -1715,28 +1940,19 @@ export default function MissionDetails() {
                   </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Type</p>
-                  <p className="text-sm font-bold text-slate-900 capitalize">{mission.package_type || "Colis"}</p>
-                </div>
-                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Poids</p>
-                  <p className="text-sm font-bold text-slate-900">{mission.weight ? `${mission.weight} kg` : "—"}</p>
-                </div>
+              <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Type</p>
+                <p className="text-sm font-bold text-slate-900 capitalize">{mission.package_type || "Colis"}</p>
               </div>
               {mission.package_description && (
                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
                   <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Nature du contenu</p>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{mission.package_description}"</p>
+                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">{mission.package_description}</p>
                 </div>
               )}
 
               {scheduleComment && (
-                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Commentaire sur l'horaire</p>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">"{scheduleComment}"</p>
-                </div>
+                <ParsedNotes text={scheduleComment} />
               )}
             </div>
           </details>
@@ -1745,9 +1961,31 @@ export default function MissionDetails() {
         <section className="p-4 pt-6 space-y-3">
           {mission.status !== "delivered" && (
             <>
+              {anomalies.length > 0 && (
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3.5 space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-red-600">Anomalies signalées</p>
+                  {anomalies.map((a) => (
+                    <div key={a.id} className={`text-xs ${a.resolved ? "opacity-60" : ""}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-bold text-red-900">
+                          {a.type}
+                          <span className="ml-1.5 font-semibold text-red-400">
+                            · {new Date(a.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </p>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${a.resolved ? "bg-emerald-100 text-emerald-700" : "bg-white text-red-600"}`}>
+                          {a.resolved ? "Traitée" : "En traitement"}
+                        </span>
+                      </div>
+                      {a.comment && <p className="text-red-700/80">{a.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={() => alert("Signaler une anomalie - À implémenter")}
+                onClick={openAnomaly}
                 className="w-full bg-red-600 text-white py-4.5 rounded-2xl font-black text-[13px] uppercase tracking-[0.2em] shadow-xl shadow-red-600/10 disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
               >
                 ⚠️ Signaler une Anomalie

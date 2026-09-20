@@ -71,10 +71,15 @@ export default function OnlineSwitch() {
     setOnline(newVal);
     localStorage.setItem(KEY, String(newVal));
 
-    await supabase
+    const { error: updateError } = await supabase
       .from('drivers')
       .update({ status: newVal ? 'disponible' : 'hors_service' })
       .eq('auth_id', user.id);
+
+    if (updateError) {
+      console.error("Failed to update status:", updateError);
+      alert("Erreur lors de la mise à jour du statut: " + updateError.message);
+    }
   };
 
   if (loading) return null;
