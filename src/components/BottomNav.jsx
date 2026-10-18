@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useDriverCounts } from "../lib/useDriverCounts";
 
 const MissionsIcon = ({ active }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
@@ -39,6 +40,7 @@ const ProfileIcon = ({ active }) => (
 
 export default function BottomNav() {
   const location = useLocation();
+  const { unread, active } = useDriverCounts();
 
   const navItems = [
     { path: "/missions", label: "Missions", icon: MissionsIcon },
@@ -48,7 +50,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-200/60 z-40 pb-safe">
+    <nav className="app-bottom-nav fixed bottom-0 left-0 right-0 bg-ink border-t border-white/10 z-40 pb-safe">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -60,12 +62,22 @@ export default function BottomNav() {
               to={item.path}
               className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-all duration-200 ${
                 isActive 
-                  ? "text-slate-900 scale-105 font-bold" 
-                  : "text-slate-400 hover:text-slate-600"
+                  ? "text-accent font-bold"
+                  : "text-white/55 hover:text-white"
               }`}
             >
-              <div className={`p-1.5 rounded-xl transition-colors ${isActive ? "bg-slate-100/80" : ""}`}>
+              <div className="relative p-1.5 rounded-xl transition-colors">
                 <Icon active={isActive} />
+                {(() => {
+                  const n = item.path === "/chat" ? unread : item.path === "/missions" ? active : 0;
+                  if (n <= 0) return null;
+                  const label = item.path === "/chat" ? `${n} message(s) non lu(s)` : `${n} course(s) en cours`;
+                  return (
+                    <span className="absolute -right-1 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-white ring-2 ring-ink" aria-label={label}>
+                      {n > 99 ? "99+" : n}
+                    </span>
+                  );
+                })()}
               </div>
               <span className="text-[10px] font-black uppercase tracking-tighter">
                 {item.label}

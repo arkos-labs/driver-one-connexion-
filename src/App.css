@@ -11,8 +11,8 @@
   max-width: var(--app-max-width);
   min-height: 100vh;
   margin: 0 auto;
-  background: #f6f7f7;
-  box-shadow: 0 0 0 1px #e5e7eb;
+  background: var(--color-paper);
+  box-shadow: 0 0 0 1px var(--color-line);
   overflow-x: hidden;
 }
 

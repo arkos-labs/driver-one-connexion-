@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
 import { supabase } from "../lib/supabase";
+import ThemedLogo from "../components/ThemedLogo.jsx";
 
 const DRIVERS_KEY = "oc_admin_drivers";
 const ADMIN_ROLES = ['admin', 'super_admin', 'dispatcher'];
@@ -123,6 +124,7 @@ export default function AdminPage() {
         .channel('admin_global_updates')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchDrivers())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => fetchChat())
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -190,6 +192,15 @@ export default function AdminPage() {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
   }, [chatMessages, showChat]);
+
+  // Tchat ouvert = messages des chauffeurs lus
+  useEffect(() => {
+    if (!showChat) return;
+    if (!chatMessages.some((m) => !m.is_admin_message && !m.read_at && !m.is_optimistic)) return;
+    supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('is_admin_message', false).is('read_at', null)
+      .then(({ error }) => { if (!error) fetchChat(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showChat, chatMessages]);
 
   const fetchChat = async () => {
     const { data } = await supabase
@@ -425,10 +436,10 @@ export default function AdminPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#f6f7f7] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F4F2EE] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <img src="/logo.svg" alt="Logo" className="h-20 w-20 animate-pulse" />
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1d283a] border-t-transparent" />
+          <ThemedLogo alt="Logo" className="h-20 w-20 animate-pulse" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0E0F10] border-t-transparent" />
         </div>
       </div>
     );
@@ -436,14 +447,14 @@ export default function AdminPage() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
+      <div className="min-h-screen bg-[#F4F2EE] text-[#0E0F10]">
         <main className="flex min-h-screen items-center justify-center px-4">
           <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 shadow-sm text-center">
-            <img src="/logo.svg" alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
+            <ThemedLogo alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
             <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
             <h1 className="mt-2 text-2xl font-bold">Accès refusé</h1>
             <p className="mt-4 text-sm text-gray-500">Vous devez être connecté avec un compte administrateur.</p>
-            <a href="/login" className="mt-6 inline-block w-full rounded-xl bg-[#1d283a] px-4 py-3 text-sm font-semibold text-white">
+            <a href="/login" className="mt-6 inline-block w-full rounded-xl bg-[#0E0F10] px-4 py-3 text-sm font-semibold text-white">
               Se connecter
             </a>
           </div>
@@ -467,7 +478,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
+    <div className="min-h-screen bg-[#F4F2EE] text-[#0E0F10]">
       <header className="relative sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold tracking-tight uppercase text-slate-800">Admin</h1>
@@ -576,7 +587,7 @@ export default function AdminPage() {
 
               <button
                 type="button"
-                className="w-full rounded-xl bg-[#1d283a] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                className="w-full rounded-xl bg-[#0E0F10] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed mt-4"
                 onClick={handleCreateDriver}
                 disabled={loading}
               >
@@ -734,7 +745,7 @@ export default function AdminPage() {
                 {drivers.map((d) => (
                   <div key={d.id} className={`rounded-lg border p-3 text-sm ${d.is_online ? 'border-emerald-100 bg-emerald-50/30' : 'border-gray-100 bg-gray-50'}`}>
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-[#1d283a]">{d.full_name || d.name || d.email}</div>
+                      <div className="font-semibold text-[#0E0F10]">{d.full_name || d.name || d.email}</div>
                       <button
                         onClick={() => toggleDriverStatus(d.id, d.is_online)}
                         className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase cursor-pointer hover:opacity-80 transition-opacity ${d.is_online ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}
@@ -869,6 +880,11 @@ export default function AdminPage() {
                       } ${msg.is_optimistic ? 'opacity-75' : ''}`}>
                         {msg.content}
                       </div>
+                      {isAdmin && !msg.is_optimistic && (
+                        <span className={`mt-1 text-[10px] font-semibold ${msg.read_at ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          {msg.read_at ? `✓✓ Lu à ${new Date(msg.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '✓ Envoyé'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -919,7 +935,7 @@ export default function AdminPage() {
       )}
       {toast && (
         <div className="fixed bottom-20 left-4 z-[100] max-w-xs animate-bounce">
-          <div className="bg-[#1d283a] text-white rounded-2xl p-4 shadow-2xl border border-gray-700">
+          <div className="bg-[#0E0F10] text-white rounded-2xl p-4 shadow-2xl border border-gray-700">
             <div className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Message de {toast.senderName}</div>
             <div className="text-sm font-medium line-clamp-2">{toast.content}</div>
             <button onClick={() => { setShowChat(true); setToast(null); }} className="mt-2 text-[10px] font-bold text-blue-400 underline">Voir la discussion</button>

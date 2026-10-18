@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
 import { supabase } from "../lib/supabase";
+import { unregisterNativePush } from "../lib/nativePush";
+import { setAppBadge } from "../lib/appBadge";
+import { formatIban, isValidBic, isValidIban, maskIban, normalizeBic, normalizeIban } from "../lib/driverProfile";
+import { GPS_APPS, getGpsApp, setGpsApp } from "../lib/gps";
+import { THEME_MODES, getThemeMode, setThemeMode, sunTimes, formatClock } from "../lib/theme";
 
 const UserIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -19,13 +24,41 @@ const CameraIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
 );
 
+function Card({ icon, title, hint, children }) {
+  return (
+    <section className="rounded-xl border border-line bg-paper-card p-5 shadow-sm">
+      <div className="flex items-center gap-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-label">
+        {icon}
+        {title}
+      </div>
+      {hint && <p className="mt-2 text-xs leading-relaxed text-muted">{hint}</p>}
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function Row({ label, children }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-line py-3 last:border-0 last:pb-0">
+      <span className="shrink-0 text-sm text-muted">{label}</span>
+      <div className="min-w-0 text-right">{children}</div>
+    </div>
+  );
+}
+
+const INPUT_CLS = "w-44 max-w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-right text-sm font-semibold text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/20";
+const VALUE_CLS = "break-words text-sm font-semibold text-ink";
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [gpsApp, setGpsAppState] = useState(() => getGpsApp());
+  const [themeMode, setThemeModeState] = useState(() => getThemeMode());
   const [saveLoading, setSaveLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [personal, setPersonal] = useState({
     full_name: "",
@@ -82,8 +115,8 @@ export default function ProfilePage() {
           type: "",
         });
         setBank({
-          iban: "",
-          bic: "",
+          iban: formatIban(driver?.iban),
+          bic: driver?.bic || "",
         });
         setIsOnline(driver?.status !== 'hors_service');
       }
@@ -158,14 +191,14 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      if (!isValidIban(bank.iban)) throw new Error("IBAN invalide : vérifiez les caractères.");
+      if (!isValidBic(bank.bic)) throw new Error("BIC invalide (8 ou 11 caractères).");
+
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: personal.full_name,
           phone: personal.phone,
-          company: personal.company,
-          siret: personal.siret,
-          billing_address: personal.address,
         })
         .eq("id", user.id);
 
@@ -177,6 +210,8 @@ export default function ProfilePage() {
           name: personal.full_name,
           phone: personal.phone,
           vehicle: [vehicle.model, vehicle.plate].filter(Boolean).join(' — '),
+          iban: normalizeIban(bank.iban),
+          bic: normalizeBic(bank.bic),
         })
         .eq("auth_id", user.id);
 
@@ -217,50 +252,77 @@ export default function ProfilePage() {
         .eq('auth_id', user.id);
     }
 
+    await unregisterNativePush();
+    await setAppBadge(0);
     await supabase.auth.signOut();
     navigate("/login");
   };
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Supprimer définitivement votre compte et vos données personnelles ? Cette action est irréversible.")) return;
+    if (!window.confirm("Dernière confirmation : supprimer mon compte ?")) return;
+    setDeleteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-account");
+      if (error || data?.error) {
+        let msg = data?.error;
+        if (!msg && error?.context?.json) msg = (await error.context.json().catch(() => null))?.error;
+        throw new Error(msg || error?.message || "Erreur inconnue");
+      }
+      await unregisterNativePush();
+      await setAppBadge(0);
+      await supabase.auth.signOut();
+      navigate("/login");
+    } catch (err) {
+      alert("Suppression impossible : " + err.message);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const initials = personal.full_name
+    ? personal.full_name.trim().split(/\s+/).map((n) => n[0]).join("").slice(0, 2)
+    : "1C";
+
   return (
-    <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
-      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3 flex items-center justify-between backdrop-blur-md bg-white/90">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-800">Profil</h1>
-        </div>
-        <div className="absolute left-1/2 top-1 -translate-x-1/2">
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="relative sticky top-0 z-30 bg-paper-card/95 border-b border-line px-4 py-3.5 flex items-center justify-between backdrop-blur-md">
+        <h1 className="text-base font-bold tracking-tight text-ink">Profil</h1>
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: "calc(50% + env(safe-area-inset-top, 0px) / 2)" }}>
           <OnlineSwitch />
         </div>
       </header>
 
-      <main className="flex-1">
-        <div className="mx-4 mt-4 rounded-[26px] border border-slate-200/70 bg-white p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative group">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900 text-xl font-semibold text-white rotate-0 shadow-lg shadow-slate-900/20 overflow-hidden">
+      <main className="flex-1 px-4 pt-4 pb-6">
+        {/* Identité */}
+        <div className="rounded-xl bg-ink p-5 text-white shadow-md">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="relative shrink-0">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-accent text-xl font-bold text-white">
                   {personal.avatar_url ? (
                     <img src={personal.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="uppercase">{personal.full_name ? personal.full_name.trim().split(/\s+/).map(n => n[0]).join('').slice(0, 2) : "1C"}</span>
+                    <span className="uppercase">{initials}</span>
                   )}
                 </div>
-                <label className="absolute -bottom-1 -right-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50 transition-colors">
+                <label className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg border border-line bg-paper-card text-ink shadow-sm active:scale-95 transition-transform">
                   <CameraIcon />
                   <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
                 </label>
               </div>
-              <div>
-                <div className="text-lg font-semibold text-slate-900">{personal.full_name || "Chauffeur"}</div>
-                <div className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                  {isOnline ? "En ligne" : "Hors ligne"}
+              <div className="min-w-0">
+                <div className="break-words text-lg font-bold leading-tight">{personal.full_name || "Chauffeur"}</div>
+                <div className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]">
+                  <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400" : "bg-white/40"}`} />
+                  <span className={isOnline ? "text-emerald-300" : "text-white/60"}>{isOnline ? "En ligne" : "Hors ligne"}</span>
                 </div>
               </div>
             </div>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-100"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-white active:bg-white/20 transition-colors"
               >
                 <EditIcon />
                 Modifier
@@ -269,167 +331,170 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 mx-4">
-          <div className="rounded-[24px] border border-slate-200/70 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                <UserIcon />
-                Informations personnelles
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Nom complet</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right"
-                    value={personal.full_name}
-                    onChange={(e) => setPersonal({ ...personal, full_name: e.target.value })}
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900">{personal.full_name}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Téléphone</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right"
-                    value={personal.phone}
-                    onChange={(e) => setPersonal({ ...personal, phone: e.target.value })}
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900">{personal.phone}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Email</span>
-                <span className="font-semibold text-slate-400">{personal.email}</span>
-              </div>
-            </div>
-          </div>
+        <div className="mt-4 grid gap-4">
+          <Card icon={<UserIcon />} title="Informations personnelles">
+            <Row label="Nom complet">
+              {isEditing ? (
+                <input className={INPUT_CLS} value={personal.full_name} onChange={(e) => setPersonal({ ...personal, full_name: e.target.value })} />
+              ) : (
+                <span className={VALUE_CLS}>{personal.full_name || "—"}</span>
+              )}
+            </Row>
+            <Row label="Téléphone">
+              {isEditing ? (
+                <input className={INPUT_CLS} inputMode="tel" value={personal.phone} onChange={(e) => setPersonal({ ...personal, phone: e.target.value })} />
+              ) : (
+                <span className={VALUE_CLS}>{personal.phone || "—"}</span>
+              )}
+            </Row>
+            <Row label="Email">
+              <span className="break-all text-sm font-semibold text-label">{personal.email || "—"}</span>
+            </Row>
+          </Card>
 
-          <div className="rounded-[24px] border border-slate-200/70 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                <TruckIcon />
-                Véhicule
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Modèle</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right"
-                    value={vehicle.model}
-                    onChange={(e) => setVehicle({ ...vehicle, model: e.target.value })}
-                    placeholder="Ex: Renault Master"
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900">{vehicle.model || "—"}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Immatriculation</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right"
-                    value={vehicle.plate}
-                    onChange={(e) => setVehicle({ ...vehicle, plate: e.target.value })}
-                    placeholder="Ex: AA-123-BB"
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900">{vehicle.plate || "—"}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Type</span>
-                {isEditing ? (
-                  <select
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right bg-transparent"
-                    value={vehicle.type}
-                    onChange={(e) => setVehicle({ ...vehicle, type: e.target.value })}
+          <Card icon={<TruckIcon />} title="Véhicule">
+            <Row label="Modèle">
+              {isEditing ? (
+                <input className={INPUT_CLS} value={vehicle.model} onChange={(e) => setVehicle({ ...vehicle, model: e.target.value })} placeholder="Ex: Renault Master" />
+              ) : (
+                <span className={VALUE_CLS}>{vehicle.model || "—"}</span>
+              )}
+            </Row>
+            <Row label="Immatriculation">
+              {isEditing ? (
+                <input className={INPUT_CLS} value={vehicle.plate} onChange={(e) => setVehicle({ ...vehicle, plate: e.target.value })} placeholder="Ex: AA-123-BB" />
+              ) : (
+                <span className={VALUE_CLS}>{vehicle.plate || "—"}</span>
+              )}
+            </Row>
+            <Row label="Type">
+              {isEditing ? (
+                <select className={`${INPUT_CLS} bg-paper`} value={vehicle.type} onChange={(e) => setVehicle({ ...vehicle, type: e.target.value })}>
+                  <option value="">Sélectionner</option>
+                  <option value="Moto">Moto</option>
+                  <option value="Voiture">Voiture</option>
+                  <option value="Petit Van">Petit Van</option>
+                  <option value="Grand Van">Grand Van</option>
+                  <option value="Camion">Camion</option>
+                </select>
+              ) : (
+                <span className={VALUE_CLS}>{vehicle.type || "—"}</span>
+              )}
+            </Row>
+          </Card>
+
+          <Card
+            title="Apparence"
+            hint={(() => {
+              const t = sunTimes();
+              return `Automatique : l'app passe en sombre au coucher du soleil (aujourd'hui ${formatClock(t.sunset)}) et revient en clair au lever (${formatClock(t.sunrise)}).`;
+            })()}
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {THEME_MODES.map((m) => {
+                const active = themeMode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => { setThemeMode(m.id); setThemeModeState(m.id); }}
+                    className={`rounded-lg border px-2 py-3 text-sm font-semibold transition-colors ${
+                      active ? "border-accent bg-accent/10 text-ink" : "border-line bg-paper text-muted active:bg-line"
+                    }`}
                   >
-                    <option value="">Sélectionner</option>
-                    <option value="Moto">Moto</option>
-                    <option value="Voiture">Voiture</option>
-                    <option value="Petit Van">Petit Van</option>
-                    <option value="Grand Van">Grand Van</option>
-                    <option value="Camion">Camion</option>
-                  </select>
-                ) : (
-                  <span className="font-semibold text-slate-900">{vehicle.type || "—"}</span>
-                )}
-              </div>
+                    {m.label}
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </Card>
 
-          <div className="rounded-[24px] border border-slate-200/70 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                <CreditCardIcon />
-                Informations bancaires
-              </div>
+          <Card title="Application GPS" hint="Touchez une adresse dans une mission : l'itinéraire s'ouvre directement dans cette application.">
+            <div className="grid gap-2">
+              {GPS_APPS.map((a) => {
+                const active = gpsApp === a.id;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => { setGpsApp(a.id); setGpsAppState(a.id); }}
+                    className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm font-semibold transition-colors ${
+                      active ? "border-accent bg-accent/10 text-ink" : "border-line bg-paper text-muted active:bg-line"
+                    }`}
+                  >
+                    <span>{a.label}</span>
+                    <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${active ? "border-accent" : "border-line"}`}>
+                      {active && <span className="h-2.5 w-2.5 rounded-full bg-accent" />}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="mt-4 grid gap-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">IBAN</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right font-mono text-xs"
-                    value={bank.iban}
-                    onChange={(e) => setBank({ ...bank, iban: e.target.value.toUpperCase().replace(/\s/g, '') })}
-                    placeholder="FR76..."
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900 font-mono tracking-tighter">{bank.iban || "—"}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">BIC</span>
-                {isEditing ? (
-                  <input
-                    className="font-semibold text-slate-900 border-b border-slate-200 focus:border-blue-500 outline-none text-right font-mono"
-                    value={bank.bic}
-                    onChange={(e) => setBank({ ...bank, bic: e.target.value.toUpperCase() })}
-                    placeholder="XXXX..."
-                  />
-                ) : (
-                  <span className="font-semibold text-slate-900">{bank.bic || "—"}</span>
-                )}
-              </div>
-            </div>
-          </div>
+          </Card>
+
+          <Card icon={<CreditCardIcon />} title="Informations bancaires">
+            <Row label="IBAN">
+              {isEditing ? (
+                <input
+                  className={`${INPUT_CLS} font-mono text-xs`}
+                  value={bank.iban}
+                  onChange={(e) => setBank({ ...bank, iban: formatIban(e.target.value) })}
+                  placeholder="FR76..."
+                />
+              ) : (
+                <span className={`${VALUE_CLS} font-mono text-xs`}>{bank.iban ? maskIban(bank.iban) : "—"}</span>
+              )}
+            </Row>
+            <Row label="BIC">
+              {isEditing ? (
+                <input
+                  className={`${INPUT_CLS} font-mono`}
+                  value={bank.bic}
+                  onChange={(e) => setBank({ ...bank, bic: e.target.value.toUpperCase() })}
+                  placeholder="XXXX..."
+                />
+              ) : (
+                <span className={`${VALUE_CLS} font-mono`}>{bank.bic || "—"}</span>
+              )}
+            </Row>
+          </Card>
 
           {isEditing && (
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setIsEditing(false)}
-                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 text-center uppercase tracking-wide"
+                className="rounded-xl border border-line bg-paper-card px-4 py-3.5 text-sm font-bold text-ink active:bg-line transition-colors"
               >
                 Annuler
               </button>
               <button
                 onClick={handleSave}
                 disabled={saveLoading}
-                className="flex-2 rounded-xl bg-blue-600 px-8 py-3 text-sm font-semibold text-white text-center uppercase tracking-wide disabled:opacity-50"
+                className="rounded-xl bg-accent px-4 py-3.5 text-sm font-bold text-white shadow-md disabled:opacity-50 active:scale-[0.98] transition-all"
               >
-                {saveLoading ? "Enregistrement..." : "Enregistrer"}
+                {saveLoading ? "Enregistrement…" : "Enregistrer"}
               </button>
             </div>
           )}
-          <div className="rounded-[24px] border border-rose-100 bg-rose-50 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
-            <button
-              onClick={handleSignOut}
-              className="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white text-center uppercase tracking-wide"
-            >
-              Déconnexion
-            </button>
-          </div>
+
+          <button
+            onClick={handleSignOut}
+            className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm font-bold text-red-700 active:bg-red-100 transition-colors"
+          >
+            Se déconnecter
+          </button>
+
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleteLoading}
+            className="w-full rounded-xl px-4 py-3 text-xs font-semibold text-muted underline disabled:opacity-50"
+          >
+            {deleteLoading ? "Suppression…" : "Supprimer mon compte"}
+          </button>
+
+          <p className="pb-2 text-center font-mono text-[10px] uppercase tracking-[0.14em] text-label">One Connexion · Espace chauffeur</p>
         </div>
       </main>
-
     </div>
   );
 }

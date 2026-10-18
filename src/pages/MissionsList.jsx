@@ -192,130 +192,136 @@ export default function MissionsList() {
     setLoading(false);
   };
 
-  const active = missions;
+  const isToAccept = (m) => m.type !== 'navette' && (m.status === 'assigned' || m.status === 'confirmee');
+  const toAccept = missions.filter(isToAccept);
+  const ongoing = missions.filter((m) => !isToAccept(m));
 
-  return (
-    <div className="min-h-screen bg-paper text-ink">
-      <header className="relative sticky top-0 z-30 bg-paper-card border-b border-line px-4 py-3 flex items-center justify-between backdrop-blur-md bg-paper-card/90">
-        <div className="flex items-center gap-2">
-          <h1 className="text-sm font-black tracking-[0.1em] uppercase text-ink">Missions</h1>
-        </div>
-        <div className="absolute left-1/2 top-1 -translate-x-1/2">
-          <OnlineSwitch />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => fetchMissions()}
-            className="p-2 -mr-2 rounded-[2px] active:bg-line text-label hover:text-ink transition-colors"
-            title="Rafraîchir"
-            disabled={loading}
-          >
-            <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24"/>
-              <path d="M21 3v9h-9"/>
-            </svg>
-          </button>
-        </div>
-      </header>
+  const renderCard = (m) => {
+    const isNavette = m.type === 'navette';
+    const needsAccept = isToAccept(m);
+    const pickupName = isNavette ? m.name : (m.pickup_name || m.pickup?.title || "—");
+    const pickupAddr = isNavette ? m.pickup_address : (m.pickup_address || m.pickup?.address1 || "—");
+    const deliveryName = isNavette ? "Navette" : (m.delivery_name || m.delivery?.title || "—");
+    const deliveryAddr = isNavette ? m.dropoff_address : (m.dropoff_address || m.delivery_address || m.delivery?.address1 || "—");
+    const pickupTime = isNavette ? m.start_time : m.scheduled_at;
+    const deliveryTime = isNavette ? m.end_time : m.delivery_deadline;
+    const label = isNavette ? "Navette" : statusTitle(m.status);
 
-      <main className="flex-1">
-        <div className="px-4 py-4 pt-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[2px] bg-ink/10 text-ink border border-line">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-ink opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-ink" />
-            </span>
-            <span className="text-sm font-bold tracking-wider uppercase">{active.length} mission(s)</span>
+    return (
+      <Link
+        key={m.id}
+        to={`/missions/${m.id}`}
+        className={`block overflow-hidden rounded-xl border bg-paper-card shadow-sm active:scale-[0.99] transition-transform ${
+          needsAccept ? "border-accent ring-1 ring-accent/30" : "border-line"
+        }`}
+      >
+        {/* Bandeau statut */}
+        <div className={`flex items-center justify-between px-4 py-2.5 ${needsAccept ? "bg-accent text-white" : "bg-ink text-white"}`}>
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${needsAccept ? "bg-[#ffffff] animate-pulse" : "bg-accent"}`} />
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em]">{label}</span>
+          </div>
+          <span className="font-mono text-[11px] opacity-70">#{m.id.slice(0, 6)}</span>
+        </div>
+
+        {/* Trajet */}
+        <div className="flex gap-3 px-4 pt-4 pb-3">
+          <div className="flex flex-col items-center pt-1.5">
+            <span className="h-2.5 w-2.5 rounded-full border-2 border-ink bg-paper-card" />
+            <span className="my-1 w-px flex-1 bg-line" />
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-accent" />
+          </div>
+
+          <div className="flex-1 min-w-0 space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-label">Enlèvement</span>
+                <span className="font-mono text-sm font-semibold text-ink">{formatTime(pickupTime)}</span>
+              </div>
+              <p className="mt-0.5 text-[15px] font-bold leading-tight text-ink line-clamp-1">{pickupName}</p>
+              <p className="mt-0.5 text-xs text-muted line-clamp-2">{pickupAddr}</p>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-label">Livraison</span>
+                <span className="font-mono text-sm font-semibold text-accent-dark">{formatTime(deliveryTime)}</span>
+              </div>
+              <p className="mt-0.5 text-[15px] font-bold leading-tight text-ink line-clamp-1">{deliveryName}</p>
+              <p className="mt-0.5 text-xs text-muted line-clamp-2">{deliveryAddr}</p>
+            </div>
           </div>
         </div>
 
-        <section className="px-4 space-y-3">
-          {active.map((m) => {
-            const isNavette = m.type === 'navette';
-            const pickupName = isNavette ? m.name : (m.pickup_name || m.pickup?.title || "—");
-            const pickupAddr = isNavette ? m.pickup_address : (m.pickup_address || m.pickup?.address1 || "—");
-            const deliveryName = isNavette ? "Navette" : (m.delivery_name || m.delivery?.title || "—");
-            const deliveryAddr = isNavette ? m.dropoff_address : (m.dropoff_address || m.delivery_address || m.delivery?.address1 || "—");
-            const pickupTime = isNavette ? m.start_time : m.scheduled_at;
-            const deliveryTime = isNavette ? m.end_time : m.delivery_deadline;
+        {/* Action */}
+        <div className="flex items-center justify-between border-t border-line px-4 py-3">
+          <span className={`text-sm font-bold ${needsAccept ? "text-accent-dark" : "text-ink"}`}>
+            {needsAccept ? "Voir et accepter" : "Ouvrir la mission"}
+          </span>
+          <svg className="h-4 w-4 text-label" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </div>
+      </Link>
+    );
+  };
 
-            return (
-              <Link
-                key={m.id}
-                to={`/missions/${m.id}`}
-                className={`block rounded-xl p-5 shadow-md hover:shadow-lg transition-all border-l-4 ${
-                  isNavette
-                    ? 'bg-paper-card border-l-accent hover:bg-paper'
-                    : m.status === 'assigned'
-                      ? 'bg-paper-card border-l-muted hover:bg-paper'
-                      : 'bg-paper border-l-accent hover:shadow-xl'
-                }`}
-              >
-                {/* Header avec ID et Status */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-ink/5 flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-label">{m.id.slice(0, 2).toUpperCase()}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs font-mono text-label">{m.id.slice(0, 8)}</span>
-                      {isNavette && <span className="ml-2 text-[9px] font-bold bg-accent/10 text-accent px-2 py-0.5 rounded-full">NAVETTE</span>}
-                    </div>
-                  </div>
-                  <div className={`px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
-                    isNavette ? 'bg-accent/5 text-accent border-accent/20' :
-                    m.status === 'assigned' ? 'bg-ink/5 text-muted border-line' : 'bg-accent/10 text-accent border-accent/20'
-                  }`}>
-                    {isNavette ? "Navette" : statusTitle(m.status)}
-                  </div>
+  return (
+    <div className="min-h-screen bg-paper text-ink">
+      <header className="relative sticky top-0 z-30 bg-paper-card/95 border-b border-line px-4 py-3.5 flex items-center justify-between backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base font-bold tracking-tight text-ink">Missions</h1>
+        </div>
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ top: "calc(50% + env(safe-area-inset-top, 0px) / 2)" }}>
+          <OnlineSwitch />
+        </div>
+      </header>
+
+      <main className="flex-1 px-4 pt-5 pb-6">
+        {loading && missions.length === 0 ? (
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-44 animate-pulse rounded-xl border border-line bg-paper-card" />
+            ))}
+          </div>
+        ) : missions.length === 0 ? (
+          <div className="mt-10 flex flex-col items-center rounded-xl border border-dashed border-line bg-paper-card px-6 py-12 text-center">
+            <div className="relative mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-accent/10">
+              <span className="absolute inset-0 animate-ping rounded-full bg-accent/10" />
+              <svg className="relative h-6 w-6 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+            </div>
+            <p className="text-base font-bold text-ink">En attente de missions</p>
+            <p className="mt-1.5 max-w-[16rem] text-sm text-muted">
+              Restez en ligne : vos courses apparaîtront ici dès qu'elles vous sont assignées.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {toAccept.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-dark">À accepter</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">{toAccept.length}</span>
                 </div>
+                {toAccept.map(renderCard)}
+              </section>
+            )}
 
-                {/* Trajet avec icônes */}
-                <div className="flex gap-4">
-                  {/* Timeline */}
-                  <div className="flex flex-col items-center gap-0.5 pt-1">
-                    <div className="w-2 h-2 rounded-full bg-ink" />
-                    <div className="w-0.5 h-12 bg-line" />
-                    <div className={`w-2 h-2 rounded-full ${isNavette ? 'bg-accent' : 'bg-ink'}`} />
-                  </div>
-
-                  {/* Infos */}
-                  <div className="flex-1 space-y-4">
-                    {/* ENLÈVEMENT */}
-                    <div className="space-y-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-label">Enlèvement</p>
-                        <span className="text-[10px] font-mono text-label whitespace-nowrap bg-ink/5 px-2 py-0.5 rounded">
-                          {formatTime(pickupTime)}
-                        </span>
-                      </div>
-                      <p className="text-sm font-semibold text-ink line-clamp-1">{pickupName}</p>
-                      <p className="text-xs text-muted line-clamp-2">{pickupAddr}</p>
-                    </div>
-
-                    {/* LIVRAISON */}
-                    <div className="space-y-1 pt-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-label">Livraison</p>
-                        <span className="text-[10px] font-mono text-label whitespace-nowrap bg-accent/10 px-2 py-0.5 rounded text-accent">
-                          {formatTime(deliveryTime)}
-                        </span>
-                      </div>
-                      <p className="text-sm font-semibold text-ink line-clamp-1">{deliveryName}</p>
-                      <p className="text-xs text-muted line-clamp-2">{deliveryAddr}</p>
-                    </div>
-                  </div>
+            {ongoing.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-label">En cours</span>
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-white">{ongoing.length}</span>
                 </div>
-              </Link>
-            );
-          })}
-
-          {active.length === 0 && (
-            <div className="bg-paper-card rounded-[2px] p-4 shadow-sm border border-line text-sm text-muted">Aucune mission.</div>
-          )}
-        </section>
+                {ongoing.map(renderCard)}
+              </section>
+            )}
+          </div>
+        )}
       </main>
-
     </div>
   );
 }

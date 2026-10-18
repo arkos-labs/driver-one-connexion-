@@ -20,7 +20,7 @@ self.addEventListener('push', (event) => {
         body: data.body || 'Une nouvelle mission a été assignée.',
         icon: '/pwa-192x192.png',
         badge: '/pwa-192x192.png',
-        vibrate: [200, 100, 200],
+        vibrate: [120],
         data: data.data || {},
         actions: [
             { action: 'accept', title: '✅ Accepter', icon: '/icons/check.png' },

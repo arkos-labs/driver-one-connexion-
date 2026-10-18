@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import ThemedLogo from "../components/ThemedLogo.jsx";
+import AppleButton from "../components/AppleButton.jsx";
+import { appleAvailable } from "../lib/appleAuth";
+import RememberMeCheckbox from "../components/RememberMeCheckbox.jsx";
+import DriverInfoFields from "../components/DriverInfoFields.jsx";
+import { joinName, joinVehicle, normalizeBic, normalizeIban, normalizePlate, validateDriverInfo } from "../lib/driverProfile";
 
 export default function RegisterPage() {
     const navigate = useNavigate();
@@ -10,8 +16,9 @@ export default function RegisterPage() {
     const [successMsg, setSuccessMsg] = useState("");
 
     const [form, setForm] = useState({
-        fullName: "",
+        firstName: "", lastName: "",
         phone: "", email: "", password: "",
+        model: "", plate: "", iban: "", bic: "",
     });
 
     const [session, setSession] = useState(null);
@@ -76,36 +83,20 @@ export default function RegisterPage() {
         };
     }, [navigate]);
 
-    const handleGoogleLogin = async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: window.location.origin + "/register",
-                    skipBrowserRedirect: true,
-                },
-            });
-            if (error) throw error;
-            if (data?.url) {
-              window.location.assign(data.url);
-            } else {
-              throw new Error("URL de redirection non trouvée");
-            }
-        } catch (err) {
-            console.error("Google login error:", err);
-            alert("Erreur Google : " + err.message);
-            setLoading(false);
-        }
-    };
-
     const handleRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
         
         setErrorMsg("");
         setSuccessMsg("");
-        
+
+        const problem = validateDriverInfo(form);
+        if (problem) {
+            setErrorMsg(problem);
+            setLoading(false);
+            return;
+        }
+
         try {
             let userId = session?.user?.id;
 
@@ -127,7 +118,7 @@ export default function RegisterPage() {
                     options: {
                         data: {
                             role: 'driver',
-                            full_name: form.fullName.trim(),
+                            full_name: joinName(form.firstName, form.lastName),
                             phone: form.phone,
                         }
                     }
@@ -140,7 +131,8 @@ export default function RegisterPage() {
 
             if (userId || !session) { // Proceed to create driver profile even if session is missing (depends on RLS, but if email confirm is OFF it works)
                 const finalUserId = userId || data?.user?.id;
-                const fullName = form.fullName.trim();
+                const fullName = joinName(form.firstName, form.lastName);
+                const vehicle = joinVehicle(form.model, normalizePlate(form.plate));
 
                 if (finalUserId) {
                     const { error: profileError } = await supabase.from('profiles').upsert({
@@ -155,7 +147,10 @@ export default function RegisterPage() {
                 const { error: driverError } = await supabase.from('drivers').upsert({
                     auth_id: userId,
                     name: fullName,
-                    phone: form.phone,
+                    phone: form.phone.trim(),
+                    vehicle,
+                    iban: normalizeIban(form.iban),
+                    bic: normalizeBic(form.bic),
                     // hors_service tant qu'un administrateur n'a pas validé le compte
                     status: 'hors_service',
                 }, { onConflict: 'auth_id' });
@@ -177,54 +172,33 @@ export default function RegisterPage() {
 
     if (pageLoading) {
         return (
-            <div className="min-h-screen bg-[#f6f7f7] flex items-center justify-center">
+            <div className="min-h-screen bg-[#F4F2EE] flex items-center justify-center">
                 <div className="flex flex-col items-center gap-4">
-                    <img src="/logo.svg" alt="Logo" className="h-20 w-20 animate-pulse" />
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#1d283a] border-t-transparent" />
+                    <ThemedLogo alt="Logo" className="h-20 w-20 animate-pulse" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#0E0F10] border-t-transparent" />
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a] py-8">
+        <div className="min-h-screen bg-[#F4F2EE] text-[#0E0F10] py-8">
             <main className="max-w-xl mx-auto px-4">
                 <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                     <div className="text-center mb-6">
-                        <img src="/logo.svg" alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
-                        <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">One Connexion</div>
+                        <ThemedLogo alt="One Connexion Logo" className="mx-auto h-24 w-24 mb-2" />
+                        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-accent">One Connexion</div>
                         <h1 className="mt-2 text-2xl font-bold">Inscription Chauffeur</h1>
                         <p className="text-sm text-gray-500 mt-1">Rejoignez notre équipe de coursiers</p>
                     </div>
 
                     <div className="mb-8">
-                        <button
-                            type="button"
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
-                            className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-[#1d283a] transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-70"
-                        >
-                            <svg className="h-5 w-5" viewBox="0 0 24 24">
-                                <path
-                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                    fill="#4285F4"
-                                />
-                                <path
-                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1 .67-2.28 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    fill="#34A853"
-                                />
-                                <path
-                                    d="M5.84 14.09c-.22-.67-.35-1.39-.35-2.09s.13-1.42.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                                    fill="#FBBC05"
-                                />
-                                <path
-                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z"
-                                    fill="#EA4335"
-                                />
-                            </svg>
-                            S'inscrire avec Google
-                        </button>
+                        <div className="mb-4"><RememberMeCheckbox /></div>
 
+                        <AppleButton label="S'inscrire avec Apple" onError={setErrorMsg} disabled={loading} />
+
+
+                        {appleAvailable() && (
                         <div className="relative my-6">
                             <div className="absolute inset-0 flex items-center">
                                 <span className="w-full border-t border-gray-200"></span>
@@ -233,6 +207,7 @@ export default function RegisterPage() {
                                 <span className="bg-white px-2 text-gray-400">Ou remplir le formulaire</span>
                             </div>
                         </div>
+                        )}
 
                         {errorMsg && (
                             <div className="mb-4 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-600 border border-red-100">
@@ -249,22 +224,15 @@ export default function RegisterPage() {
 
                     <form onSubmit={handleRegister} className="space-y-5">
                         <div className="grid gap-4">
+                            <DriverInfoFields value={form} onChange={setForm} />
                             <div className="grid gap-1.5">
-                                <span className="text-xs font-semibold text-gray-500 ml-1">Nom complet</span>
-                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" placeholder="Jean Dupont" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required />
-                            </div>
-                            <div className="grid gap-1.5">
-                                <span className="text-xs font-semibold text-gray-500 ml-1">Email</span>
-                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-                            </div>
-                            <div className="grid gap-1.5">
-                                <span className="text-xs font-semibold text-gray-500 ml-1">Numéro de téléphone</span>
-                                <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="tel" placeholder="06 12 34 56 78" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+                                <span className="text-xs font-semibold text-muted ml-1">Email</span>
+                                <input className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-label focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all" type="email" placeholder="email@exemple.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
                             </div>
                             {!session && (
                                 <div className="grid gap-1.5">
                                     <span className="text-xs font-semibold text-gray-500 ml-1">Mot de passe</span>
-                                    <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#1d283a] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                                    <input className="rounded-xl border border-gray-200 bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-[#0E0F10] focus:border-transparent px-4 py-3 text-sm outline-none transition-all" type="password" placeholder="••••••••" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
                                 </div>
                             )}
                         </div>
@@ -272,13 +240,13 @@ export default function RegisterPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full rounded-xl bg-[#1d283a] px-4 py-4 text-sm font-bold text-white shadow-lg shadow-gray-200 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70"
+                            className="w-full rounded-xl bg-accent hover:bg-accent-dark px-4 py-4 text-sm font-bold text-white shadow-lg shadow-gray-200 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70"
                         >
                             {loading ? "Chargement..." : session ? "Finaliser mon inscription" : "S'inscrire et commencer"}
                         </button>
 
                         <div className="text-center">
-                            <Link to="/login" className="text-sm font-semibold text-gray-500 hover:text-[#1d283a]">
+                            <Link to="/login" className="text-sm font-semibold text-gray-500 hover:text-[#0E0F10]">
                                 Déjà inscrit ? Se connecter
                             </Link>
                         </div>

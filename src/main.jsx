@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { registerPushNotifications } from './lib/pushNotifications'
+import { initTheme } from './lib/theme'
+import { setupBackgroundSend } from './lib/backgroundSend'
+
+initTheme()
+setupBackgroundSend()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -56,4 +61,19 @@ if ('serviceWorker' in navigator) {
       })
       .catch((err) => console.error('SW registration failed:', err));
   });
+}
+
+// Retire l'écran de chargement une fois l'app prête (au moins ~1 s, pour une transition douce)
+const bootSplash = document.getElementById('boot-splash')
+if (bootSplash) {
+  const shownAt = performance.now()
+  const hide = () => {
+    const wait = Math.max(0, 1100 - (performance.now() - shownAt))
+    setTimeout(() => {
+      bootSplash.classList.add('hide')
+      setTimeout(() => bootSplash.remove(), 400)
+    }, wait)
+  }
+  if (document.readyState === 'complete') hide()
+  else window.addEventListener('load', hide, { once: true })
 }

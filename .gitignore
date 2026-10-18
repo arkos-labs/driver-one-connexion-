@@ -23,3 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Ajouts : données de test, captures, builds générés (ne pas publier)
+appstore-screenshots/
+screenshots-appstore/
+ios/App/App/public/
+ios/App/build/
+.DS_Store
+.claude/
+.agents/
+scripts/test_login.js
+scripts/create_dev_user.js
+TEST-SYSTEM-SUMMARY.md

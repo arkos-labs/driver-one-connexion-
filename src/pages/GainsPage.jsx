@@ -82,9 +82,9 @@ export default function GainsPage() {
   const fmt = (n) => n.toFixed(2).replace('.', ',');
 
   return (
-    <div className="min-h-screen bg-[#f6f7f7] text-[#1d283a]">
-      <header className="relative sticky top-0 z-30 bg-white border-b border-gray-100/50 px-4 py-3.5 flex items-center justify-between backdrop-blur-md bg-white/90">
-        <h1 className="text-sm font-black tracking-[0.1em] uppercase text-slate-900">Gains & Activité</h1>
+    <div className="min-h-screen bg-[#F4F2EE] text-[#0E0F10]">
+      <header className="relative sticky top-0 z-30 bg-paper-card/95 border-b border-line px-4 py-3.5 flex items-center justify-between backdrop-blur-md">
+        <h1 className="text-base font-bold tracking-tight text-ink">Gains & Activité</h1>
         <div className="absolute left-1/2 top-1 -translate-x-1/2">
           <OnlineSwitch />
         </div>

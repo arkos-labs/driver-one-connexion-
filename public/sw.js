@@ -31,7 +31,7 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Une nouvelle mission a été assignée.',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    vibrate: [200, 100, 200],
+    vibrate: [120],
     tag: 'new-mission',
     requireInteraction: true,
     data: {

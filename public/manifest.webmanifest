@@ -1,6 +1,6 @@
 {
-  "name": "One Connexion Driver",
-  "short_name": "One Connexion Driver",
+  "name": "One Driver",
+  "short_name": "One Driver",
   "description": "Plateforme de gestion de missions pour coursiers One Connexion",
   "start_url": "/",
   "scope": "/",

@@ -6,11 +6,12 @@ import {
     clearMissionNotification
 } from "../lib/notifications";
 import { ensurePushSubscription, removePushSubscription } from "../lib/push";
+import { registerNativePush } from "../lib/nativePush";
+import { armChime, playMissionAlert, vibrateAlert } from "../lib/chime";
 
 export default function MissionMonitor() {
     const activeMissionsRef = useRef(0);
     const prevMissionsRef = useRef(0);
-    const audioRef = useRef(null);
     // Refs to hold cleanup functions/subscriptions so we can manage them across auth events
     const subsRef = useRef({
         orderChannel: null,
@@ -25,9 +26,8 @@ export default function MissionMonitor() {
         }
         requestNotificationPermission();
 
-        // Prepare sound (small ring)
-        audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-        audioRef.current.volume = 0.5;
+        // Carillon doux (généré localement)
+        armChime();
 
         // 2. Define monitor startup/shutdown functions
         const stopMonitoring = async () => {
@@ -49,9 +49,11 @@ export default function MissionMonitor() {
             // cleanup existing just in case
             await stopMonitoring();
             await ensurePushSubscription(user.id);
+            registerNativePush(user.id);
 
             // --- A. Order Monitor (Missions) ---
-            const checkMissions = async () => {
+            // Sonne seulement pour un changement reçu en direct (ring = true), jamais au chargement de l'app
+            const checkMissions = async (ring = false) => {
                 const { count, error } = await supabase
                     .from('orders')
                     .select('*', { count: 'exact', head: true })
@@ -62,12 +64,8 @@ export default function MissionMonitor() {
                     activeMissionsRef.current = count;
 
                     // Ring if new mission arrived
-                    if (count > prevMissionsRef.current) {
-                        try {
-                            audioRef.current?.play();
-                        } catch (e) {
-                            // ignore autoplay errors
-                        }
+                    if (ring && count > prevMissionsRef.current) {
+                        playMissionAlert();
                     }
                     prevMissionsRef.current = count;
 
@@ -76,13 +74,14 @@ export default function MissionMonitor() {
                         window.history.pushState({ missionLocked: true }, "", window.location.href);
                     }
                 } else {
+                    primed = true;
                     activeMissionsRef.current = 0;
                     prevMissionsRef.current = 0;
                     clearMissionNotification();
                 }
             };
 
-            // Initial Check
+            // Initial Check (sans sonnerie)
             checkMissions();
 
             // Realtime Order Subscription
@@ -94,7 +93,7 @@ export default function MissionMonitor() {
                     table: 'orders'
                     // Removed filter for robustness, RLS handles security
                 }, () => {
-                    checkMissions();
+                    checkMissions(true);
                 })
                 .subscribe();
 
@@ -127,7 +126,7 @@ export default function MissionMonitor() {
 
                     if (newStatus === false && !recentSelfChange) {
                         // Only show message if ADMIN disconnected this driver, not if driver self-logged out
-                        if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+                        vibrateAlert();
                         alert("Vous avez été passé HORS LIGNE par l'administrateur.");
                     }
                     // Clear the self-initiated flag after handling
