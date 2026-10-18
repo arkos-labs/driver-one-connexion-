@@ -1,0 +1,361 @@
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/jetbrains-mono";
+
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+/* Design System ONE CONNEXION - déclaré dans @theme pour que Tailwind v4
+   génère réellement les classes bg-accent, text-muted, border-line, etc. */
+@theme {
+  --color-ink: #0E0F10;
+  --color-paper: #F4F2EE;
+  --color-paper-card: #FBFAF8;
+  --color-line: #DFDCD6;
+  --color-muted: #4A4845;
+  --color-label: #8C8882;
+  --color-accent: #ed5518;
+  --color-accent-dark: #c94410;
+
+  /* Typographie du site : Archivo + mono pour les petites étiquettes */
+  --font-sans: "Archivo Variable", "Archivo", -apple-system, "SF Pro Text", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-weight-black: 700;
+  --tracking-tighter: -0.01em;
+
+  /* Neutres chauds (remplacent les gris bleutés slate/gray) */
+  --color-slate-50: #F4F2EE;
+  --color-slate-100: #ECE9E3;
+  --color-slate-200: #DFDCD6;
+  --color-slate-300: #C9C5BE;
+  --color-slate-400: #8C8882;
+  --color-slate-500: #6B6863;
+  --color-slate-600: #4A4845;
+  --color-slate-700: #34322F;
+  --color-slate-800: #1C1D1E;
+  --color-slate-900: #0E0F10;
+  --color-slate-950: #08090A;
+  --color-gray-50: #F9F8F5;
+  --color-gray-100: #ECE9E3;
+  --color-gray-200: #DFDCD6;
+  --color-gray-300: #C9C5BE;
+  --color-gray-400: #8C8882;
+  --color-gray-500: #6B6863;
+  --color-gray-600: #4A4845;
+  --color-gray-700: #34322F;
+  --color-gray-800: #1C1D1E;
+  --color-gray-900: #0E0F10;
+
+  /* Le bleu devient l'orange One Connexion (actions principales) */
+  --color-blue-50: #FFF1EB;
+  --color-blue-100: #FFE0D2;
+  --color-blue-200: #FFC4A8;
+  --color-blue-300: #FF9F72;
+  --color-blue-400: #F77A44;
+  --color-blue-500: #ED5518;
+  --color-blue-600: #ED5518;
+  --color-blue-700: #C94410;
+  --color-blue-800: #9E3510;
+  --color-blue-900: #702609;
+
+  /* Coins sobres comme sur le site (4 px) */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --radius-2xl: 8px;
+  --radius-3xl: 10px;
+  --radius-4xl: 12px;
+
+  /* Ombres douces et neutres */
+  --shadow-xs: 0 1px 1px rgba(14, 15, 16, 0.04);
+  --shadow-sm: 0 1px 2px rgba(14, 15, 16, 0.06);
+  --shadow-md: 0 2px 8px rgba(14, 15, 16, 0.08);
+  --shadow-lg: 0 6px 18px rgba(14, 15, 16, 0.10);
+  --shadow-xl: 0 10px 28px rgba(14, 15, 16, 0.12);
+  --shadow-2xl: 0 16px 40px rgba(14, 15, 16, 0.16);
+}
+
+/* Rayons arbitraires du code existant (rounded-[24px], etc.) */
+[class*="rounded-["] {
+  border-radius: 6px;
+}
+
+/* Titres serrés comme sur le site */
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+/* Étiquettes en capitales : espacées, comme les « eyebrows » du site */
+.uppercase {
+  letter-spacing: 0.06em;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  touch-action: pan-y !important;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none !important;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  /* Blanc cassé - cohérent avec le dashboard client */
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  /* Noir mat - cohérent avec le dashboard client */
+  touch-action: pan-y !important;
+  overscroll-behavior: none !important;
+  overflow-x: hidden;
+  width: 100%;
+  position: fixed;
+  /* Aggressive: prevents body-level scrolling issues on iOS */
+  height: 100%;
+}
+
+#root {
+  overscroll-behavior: none !important;
+  touch-action: pan-y !important;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Force block horizontal overscroll on all scrollable elements */
+* {
+  overscroll-behavior-x: none !important;
+}
+
+/* Links - cohérents avec le design système */
+@layer base {
+  a {
+    color: var(--color-accent-dark);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--color-ink);
+  }
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.oc-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.oc-switch-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.oc-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 46px;
+  height: 28px;
+}
+
+.oc-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.oc-switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.15);
+  transition: background 180ms ease;
+}
+
+.oc-switch__thumb {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+  transition: transform 180ms ease;
+}
+
+.oc-switch input:checked~.oc-switch__track {
+  background: #22c55e;
+}
+
+.oc-switch input:checked~.oc-switch__thumb {
+  transform: translateX(18px);
+}
+
+@keyframes typingDot {
+  0% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+}
+
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  background-color: currentColor;
+  border-radius: 50%;
+  animation: typingDot 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+/* Zones sûres iPhone (barre d'état / encoche en haut, barre Home en bas) */
+header.sticky {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.875rem);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+
+/* ===== Mode sombre (automatique après le coucher du soleil, voir src/lib/theme.js) ===== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #0C0D0E;
+  --color-paper-card: #17181A;
+  --color-ink: #F2F0EB;
+  --color-line: #2B2C2F;
+  --color-muted: #B4B0A8;
+  --color-label: #8A867F;
+  --color-accent-dark: #FF7A45;
+
+  --color-slate-50: #121314;
+  --color-slate-100: #1B1C1E;
+  --color-slate-200: #2B2C2F;
+  --color-slate-300: #3E3F43;
+  --color-slate-400: #8A867F;
+  --color-slate-500: #A09C95;
+  --color-slate-600: #B4B0A8;
+  --color-slate-700: #CFCBC3;
+  --color-slate-800: #E4E1DA;
+  --color-slate-900: #F2F0EB;
+  --color-slate-950: #FAF9F6;
+  --color-gray-50: #17181A;
+  --color-gray-100: #1B1C1E;
+  --color-gray-200: #2B2C2F;
+  --color-gray-300: #3E3F43;
+  --color-gray-400: #8A867F;
+  --color-gray-500: #A09C95;
+  --color-gray-600: #B4B0A8;
+  --color-gray-700: #CFCBC3;
+  --color-gray-800: #E4E1DA;
+  --color-gray-900: #F2F0EB;
+
+  /* Pastilles de statut : fonds sombres teintés, textes plus clairs */
+  --color-emerald-50: #10261D;
+  --color-emerald-100: #14352A;
+  --color-emerald-200: #1B4A39;
+  --color-emerald-600: #34D399;
+  --color-emerald-700: #6EE7B7;
+  --color-red-50: #2A1416;
+  --color-red-100: #3A1A1D;
+  --color-red-200: #55252A;
+  --color-red-700: #FCA5A5;
+  --color-amber-50: #2B2210;
+  --color-amber-100: #3A2E12;
+  --color-amber-200: #52411A;
+  --color-amber-600: #FBBF24;
+  --color-amber-800: #FCD34D;
+  --color-amber-900: #FDE68A;
+  --color-blue-50: #2D1A10;
+  --color-blue-100: #3C2314;
+}
+
+:root[data-theme="dark"] .bg-white { background-color: var(--color-paper-card); }
+:root[data-theme="dark"] .bg-ink,
+:root[data-theme="dark"] .bg-slate-900,
+:root[data-theme="dark"] .bg-slate-800,
+:root[data-theme="dark"] .bg-slate-700,
+:root[data-theme="dark"] .bg-slate-600 { background-color: #222326; }
+:root[data-theme="dark"] [class*="bg-[#0E0F10]"]:not([class*="bg-[#0E0F10]/"]) { background-color: #222326; }
+:root[data-theme="dark"] [class*="text-[#0E0F10]"] { color: var(--color-ink); }
+:root[data-theme="dark"] [class*="bg-[#F4F2EE]"] { background-color: var(--color-paper); }
+:root[data-theme="dark"] ::placeholder { color: #6F6C66; }
+:root[data-theme="dark"] .oc-switch__track { background: #3A3B3F; }
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea { color: var(--color-ink); }
+
+/* Bouton Apple : blanc sur fond sombre (consigne Apple) */
+:root[data-theme="dark"] .apple-btn { background-color: #ffffff; color: #000000; }
+
+/* Logo : version claire / sombre selon le thème */
+.theme-logo-dark { display: none; }
+:root[data-theme="dark"] .theme-logo-light { display: none; }
+:root[data-theme="dark"] .theme-logo-dark { display: block; }
+
+/* Écran d'envoi / de confirmation (ActionOverlay) */
+@keyframes oc-spin { to { transform: rotate(360deg); } }
+@keyframes oc-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes oc-draw { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+@keyframes oc-rise { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.oc-logo-spin { transform-origin: 50% 51.2%; animation: oc-spin 1.5s cubic-bezier(.65, 0, .35, 1) infinite; }
+.oc-pop { animation: oc-pop .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+.oc-draw { stroke-dasharray: 30; stroke-dashoffset: 30; animation: oc-draw .35s .3s ease-out forwards; }
+.oc-rise { animation: oc-rise .4s .35s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .oc-logo-spin { animation-duration: 4s; } }
+
+/* Clavier ouvert : la barre du bas disparaît au lieu de remonter au-dessus du clavier */
+html.kb-open .app-bottom-nav { display: none; }

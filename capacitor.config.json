@@ -1,0 +1,10 @@
+{
+  "appId": "com.driverone.app",
+  "appName": "One Driver",
+  "webDir": "dist",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": []
+    }
+  }
+}
