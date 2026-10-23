@@ -9,6 +9,7 @@ import { vibrateSuccess } from "../lib/chime";
 import { savePendingDelivery, loadPendingDelivery, clearPendingDelivery } from "../lib/pendingDelivery";
 import { savePendingPhoto, listPendingPhotos, clearPendingPhoto } from "../lib/pendingPhotos";
 import { withBackgroundSend } from "../lib/backgroundSend";
+import { lastStopIsArrival, countPoints, delaiLabel, formatLabel } from "../lib/missionPoints";
 import { GPS_APPS, getGpsApp, setGpsApp, gpsLabel, openGps } from "../lib/gps";
 
 const ArrowLeftIcon = () => (
@@ -716,6 +717,21 @@ export default function MissionDetails() {
     navigate("/missions");
   };
 
+  // Tous les points sont livrés : on termine la course sans reprendre de photo
+  const completeCourseNoPhoto = async () => {
+    const deliveredAt = new Date().toISOString();
+    const ok = await updateOrder({
+      status: "delivered",
+      delivered_at: deliveredAt,
+      updated_at: deliveredAt,
+      point_progress: mission.point_progress || {},
+    });
+    if (ok) {
+      notifyDelivered({ ...mission, status: "delivered" }, driverName);
+      navigate("/missions");
+    }
+  };
+
   const handleAccept = async () => {
     const now = new Date().toISOString();
     const driverId = currentUserId || (await supabase.auth.getUser())?.data?.user?.id;
@@ -1244,18 +1260,16 @@ export default function MissionDetails() {
             contact_name: s.contactName || s.contact_name,
             contact_phone: s.contactPhone || s.contact_phone,
             notes: s.notes,
-            label: `Étape ${i + 1}`,
+            label: lastStopIsArrival(mission) && i === stops.length - 1 ? "Arrivée" : `Étape ${i + 1}`,
             type: "stop",
             deliveryAddress: s.deliveryAddress || s.delivery_address || null,
             deliveryContactName: s.deliveryContactName || s.delivery_contact_name || null,
             deliveryContactPhone: s.deliveryContactPhone || s.delivery_contact_phone || null,
           })),
-          { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
+          ...(lastStopIsArrival(mission) ? [] : [{ address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null }]),
         ];
-        // Other picked-up but not yet delivered stops
-        const otherPickedUp = completedStops.filter(
-          idx => idx !== deliveryModal.triggerIdx && !deliveredPickups.includes(idx)
-        );
+        // Une livraison = le point sur lequel on a cliqué (pas de sélection des autres colis)
+        const otherPickedUp = [];
 
         const toggleSelect = (idx) => {
           setDeliveryModal(prev => {
@@ -1266,6 +1280,10 @@ export default function MissionDetails() {
           });
         };
 
+        // Photo de livraison déjà prise sur un point précédent : pas besoin de la reprendre
+        const existingPhoto = deliveryModal.photo
+          ? null
+          : (Object.values(mission.point_progress || {}).map((p) => p?.photoUrl).find(Boolean) || mission.delivery_photo_url || null);
         const confirmDelivery = async () => {
           const indicesToDeliver = deliveryModal.selectedIndices;
           let publicUrl = null;
@@ -1295,6 +1313,7 @@ export default function MissionDetails() {
               setSaving(false);
             }
           }
+          if (!publicUrl && existingPhoto) publicUrl = existingPhoto;
           // Mark all selected as delivered
           setDeliveredPickups(prev => [...new Set([...prev, ...indicesToDeliver])]);
 
@@ -1317,10 +1336,15 @@ export default function MissionDetails() {
           });
           
           const stops = Array.isArray(mission.stops) ? mission.stops : [];
-          const totalPoints = stops.length + 2;
+          const totalPoints = countPoints(mission);
           const newDeliveredPickupsCount = new Set([...deliveredPickups, ...indicesToDeliver]).size;
 
-          if (newDeliveredPickupsCount === totalPoints) {
+          // Course normale : le départ est un enlèvement, la course est livrée dès que toutes les livraisons sont faites
+          const newSet = new Set([...deliveredPickups, ...indicesToDeliver]);
+          const allDelivered = mission?.type === 'navette'
+            ? newDeliveredPickupsCount === totalPoints
+            : Array.from({ length: totalPoints - 1 }, (_, i) => i + 1).every((i) => newSet.has(i));
+          if (allDelivered) {
             if (mission?.type === 'navette') {
               try {
                 const { error: histError } = await supabase.rpc('record_navette_delivery', {
@@ -1354,7 +1378,11 @@ export default function MissionDetails() {
                 point_progress: newProgress,
                 status: "delivered",
                 delivered_at: deliveredAt,
-                updated_at: deliveredAt
+                updated_at: deliveredAt,
+                delivery_recipient: deliveryRecipient || mission.delivery_recipient || null,
+                delivery_department: deliveryDepartment || mission.delivery_department || null,
+                delivery_comment: deliveryComment || mission.delivery_comment || null,
+                ...(publicUrl ? { delivery_photo_url: publicUrl } : {}),
               };
               updateOrder(patch);
             }
@@ -1372,9 +1400,9 @@ export default function MissionDetails() {
 
         return (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 overflow-y-auto">
-            <div className="w-full max-w-md my-8 rounded-3xl bg-white p-5 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+            <div className="w-full max-w-md my-8 rounded-xl border border-line bg-paper-card p-5">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-sm font-black uppercase tracking-wider text-slate-900">
+                <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink">
                   Confirmer la livraison
                 </div>
                 <button
@@ -1389,22 +1417,19 @@ export default function MissionDetails() {
               {(() => {
                 const pt = allPoints[deliveryModal.triggerIdx];
                 return (
-                  <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100/50 mb-3 space-y-2">
+                  <div className="mb-3 space-y-3 border-b border-line pb-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0">
-                        <span className="text-white text-[9px] font-black">{deliveryModal.triggerIdx + 1}</span>
-                      </div>
                       <div>
-                        <p className="text-[9px] font-bold uppercase text-amber-600">Enlevé à</p>
-                        <p className="text-[11px] font-bold text-slate-800">{pt?.address}</p>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-label">Enlevé à</p>
+                        <p className="text-sm text-ink">{pt?.address}</p>
                       </div>
                     </div>
                     {pt?.deliveryAddress && (
-                      <div className="flex items-center gap-2 pl-7">
+                      <div className="flex items-center gap-2">
                         <div>
-                          <p className="text-[9px] font-bold uppercase text-emerald-600">Livrer à</p>
-                          <p className="text-[11px] font-bold text-emerald-800">{pt.deliveryAddress}</p>
-                          {pt.deliveryContactName && <p className="text-[10px] text-emerald-700">{pt.deliveryContactName}</p>}
+                          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-label">Livrer à</p>
+                          <p className="text-sm text-ink">{pt.deliveryAddress}</p>
+                          {pt.deliveryContactName && <p className="text-xs text-muted">{pt.deliveryContactName}</p>}
                         </div>
                       </div>
                     )}
@@ -1519,16 +1544,16 @@ export default function MissionDetails() {
 
               {/* Photo */}
               <div className="mb-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-label mb-2">
                   Photo de livraison <span className="text-red-500">— Requise</span>
                 </p>
                 {deliveryModal.photo ? (
                   <div className="relative">
-                    <img src={deliveryModal.photo.dataUrl} alt="Preuve" className="h-40 w-full rounded-2xl object-cover border border-slate-100 shadow-sm" />
+                    <img src={deliveryModal.photo.dataUrl} alt="Preuve" className="h-40 w-full rounded-lg object-cover border border-line" />
                     <button
                       type="button"
                       onClick={() => { setDeliveryModal(prev => ({ ...prev, photo: null })); deliveryFileRef.current?.click(); }}
-                      className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-lg text-[10px] font-black text-slate-700 shadow"
+                      className="absolute bottom-2 right-2 rounded-md border border-line bg-paper-card px-3 py-1.5 text-[11px] font-bold text-ink"
                     >
                       Reprendre
                     </button>
@@ -1537,10 +1562,10 @@ export default function MissionDetails() {
                   <button
                     type="button"
                     onClick={() => deliveryFileRef.current?.click()}
-                    className="w-full py-8 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400 flex flex-col items-center gap-2 active:bg-slate-100 transition-colors"
+                    className="w-full py-8 rounded-lg border border-dashed border-line text-muted flex flex-col items-center gap-2 active:bg-line transition-colors"
                   >
                     <CameraIcon />
-                    <span className="text-[11px] font-bold">Prendre une photo</span>
+                    <span className="text-xs font-bold">Prendre une photo</span>
                   </button>
                 )}
               </div>
@@ -1554,14 +1579,14 @@ export default function MissionDetails() {
                       alert("Veuillez renseigner le nom du réceptionnaire et le lieu de dépôt.");
                       return;
                     }
-                    if (!deliveryModal.photo) {
+                    if (!deliveryModal.photo && !existingPhoto) {
                       alert("Veuillez prendre une photo de livraison.");
                       return;
                     }
                     confirmDelivery();
                   }}
-                  disabled={saving || !deliveryModal.photo || !deliveryRecipient.trim() || !deliveryDepartment.trim()}
-                  className="w-full rounded-2xl py-4 bg-emerald-600 text-white text-sm font-black uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all disabled:opacity-50"
+                  disabled={saving || (!deliveryModal.photo && !existingPhoto) || !deliveryRecipient.trim() || !deliveryDepartment.trim()}
+                  className="w-full rounded-lg py-3.5 bg-accent text-white text-sm font-bold active:scale-[0.98] transition-all disabled:opacity-50"
                 >
                   {deliveryModal.selectedIndices.length > 1
                     ? `Confirmer ${deliveryModal.selectedIndices.length} livraisons`
@@ -1570,7 +1595,7 @@ export default function MissionDetails() {
                 <button
                   type="button"
                   onClick={() => setDeliveryModal(null)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-400 active:bg-slate-50 transition-colors"
+                  className="w-full rounded-lg border border-line py-3 text-sm font-bold text-muted active:bg-line transition-colors"
                 >
                   Annuler
                 </button>
@@ -1635,6 +1660,8 @@ export default function MissionDetails() {
             const hidePhone = (c) => (c && isDone ? { name: c.name, phone: "" } : c);
             const toggle = (k) => setNavFor((v) => (v === k ? null : k));
             const pickGps = (id) => { setGpsApp(id); setGpsAppState(id); };
+            const stopList = Array.isArray(mission.stops) ? mission.stops.filter((x) => x && typeof x !== "string") : [];
+            const multiStops = stopList.length > 0 ? { list: stopList, arrival: lastStopIsArrival(mission) } : null;
 
             return (
               <div className="rounded-xl bg-ink p-5 text-white shadow-md">
@@ -1646,14 +1673,45 @@ export default function MissionDetails() {
                   <span className="font-mono text-[11px] text-white/50">{mission.tracking_code || `#${String(mission.id).slice(0, 6)}`}</span>
                 </div>
 
-                {(pkgType || pkgSpeed || mission.package_description) && (
+                {multiStops && (() => {
+                  const total = countPoints(mission);
+                  const done = deliveredPickups.length;
+                  return (
+                    <div className="mt-4">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Progression</span>
+                        <span className="font-mono text-xs font-semibold text-white">{done}/{total}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        {Array.from({ length: total }).map((_, idx) => {
+                          const delivered = deliveredPickups.includes(idx);
+                          const picked = completedStops.includes(idx);
+                          return (
+                            <div
+                              key={idx}
+                              className={`h-1.5 flex-1 rounded-full transition-colors ${delivered ? "bg-emerald-500" : picked ? "bg-amber-400" : "bg-white/15"}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {(pkgType || pkgSpeed || mission.package_description || mission.notes) && (
                   <div className="mt-4">
                     <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Annoncé par le client</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    {pkgType && <span className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-bold">{cap(pkgType)}</span>}
-                    {pkgSpeed && <span className="rounded-md bg-accent/20 px-2.5 py-1 text-xs font-bold text-accent">{cap(pkgSpeed)}</span>}
+                    {pkgType && <span className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-bold">{formatLabel(pkgType)}</span>}
+                    {pkgSpeed && <span className="rounded-md bg-accent/20 px-2.5 py-1 text-xs font-bold text-accent">{delaiLabel(pkgSpeed)}</span>}
                     {mission.package_description && <span className="text-xs text-white/70">{mission.package_description}</span>}
                     </div>
+                    {(mission.package_description || mission.notes) && (
+                      <div className="mt-3 rounded-lg bg-white/10 p-3">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Contenu de la course</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-white">{mission.package_description || mission.notes}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1678,6 +1736,79 @@ export default function MissionDetails() {
                       gpsApp={gpsApp}
                       onPickGps={pickGps}
                     />
+                    {multiStops ? (
+                      <>
+                        {!completedStops.includes(0) && mission.status !== "assigned" && mission.status !== "delivered" && (
+                          <button
+                            type="button"
+                            onClick={() => setPickupModal({ triggerIdx: 0, recipient: "", description: "" })}
+                            className="w-full py-3 rounded-lg bg-accent text-white font-black text-sm uppercase tracking-wider active:scale-[0.98] transition-all"
+                          >
+                            Enlever
+                          </button>
+                        )}
+                        {multiStops.list.map((st, k) => {
+                          const isArr = multiStops.arrival && k === multiStops.list.length - 1;
+                          const pIdx = k + 1;
+                          const readyToDeliver = completedStops.includes(pIdx) && !deliveredPickups.includes(pIdx);
+                          return (
+                            <div key={`stop-${k}`} className="space-y-2">
+                            <PointBlock
+                              label={isArr ? "Arrivée" : `Livraison ${k + 1}`}
+                              time={mission.delivery_deadline ? formatDateTime(mission.delivery_deadline) : "Dès que possible"}
+                              accentTime
+                              name={st.deliveryContactName || `Destinataire ${k + 1}`}
+                              address={st.deliveryAddress}
+                              contact={null}
+                              access={null}
+                              instructions={null}
+                              doneLine={deliveredPickups.includes(pIdx) ? (mission.point_progress?.[String(pIdx)]?.deliveryRecipient ? `Livré — réceptionné par ${mission.point_progress[String(pIdx)].deliveryRecipient}` : "Livré") : null}
+                              navOpen={navFor === `stop-${k}`}
+                              onToggleNav={() => toggle(`stop-${k}`)}
+                              gpsApp={gpsApp}
+                              onPickGps={pickGps}
+                            />
+                            {readyToDeliver && (
+                              <button
+                                type="button"
+                                onClick={() => setDeliveryModal({ triggerIdx: pIdx, selectedIndices: [pIdx], photo: null })}
+                                className="w-full py-3 rounded-lg bg-emerald-600 text-white font-black text-sm uppercase tracking-wider active:scale-[0.98] transition-all"
+                              >
+                                Livrer
+                              </button>
+                            )}
+                            </div>
+                          );
+                        })}
+                        {mission.status !== "delivered" && Array.from({ length: countPoints(mission) - 1 }, (_, i) => i + 1).every((i) => deliveredPickups.includes(i)) && (
+                          <button
+                            type="button"
+                            onClick={completeCourseNoPhoto}
+                            disabled={saving}
+                            className="w-full py-3.5 rounded-lg bg-emerald-600 text-white font-bold text-sm active:scale-[0.98] transition-all disabled:opacity-50"
+                          >
+                            Valider la course
+                          </button>
+                        )}
+                        {!multiStops.arrival && (
+                          <PointBlock
+                            label="Arrivée"
+                            time={mission.delivery_deadline ? formatDateTime(mission.delivery_deadline) : "Dès que possible"}
+                            accentTime
+                            name={deliveryName}
+                            address={[deliveryAddr, deliveryCity].filter(Boolean).join(", ")}
+                            contact={null}
+                            access={null}
+                            instructions={null}
+                            doneLine={deliveredPickups.includes(countPoints(mission) - 1) ? "Livré" : null}
+                            navOpen={navFor === "delivery"}
+                            onToggleNav={() => toggle("delivery")}
+                            gpsApp={gpsApp}
+                            onPickGps={pickGps}
+                          />
+                        )}
+                      </>
+                    ) : (
                     <PointBlock
                       label="Livraison"
                       time={mission.delivery_deadline ? formatDateTime(mission.delivery_deadline) : "Dès que possible"}
@@ -1693,16 +1824,11 @@ export default function MissionDetails() {
                       gpsApp={gpsApp}
                       onPickGps={pickGps}
                     />
+                    )}
                   </div>
                 </div>
 
-                {notes.extra && !isDone && (
-                  <div className="mt-5 rounded-lg bg-white/10 px-3 py-2.5">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/50">Infos</p>
-                    <p className="mt-0.5 whitespace-pre-wrap text-sm text-white/90">{notes.extra}</p>
-                  </div>
-                )}
-              </div>
+                              </div>
             );
           })()}
         </section>
@@ -1748,7 +1874,7 @@ export default function MissionDetails() {
                 </button>
               )}
 
-              {(deliveryStages.includes(mission.status) || (mission.type === 'navette' && mission.picked_up_at) || (Array.isArray(mission.stops) && mission.stops.length > 0 && mission.picked_up_at)) && (
+              {!(Array.isArray(mission.stops) && mission.stops.length > 0) && (deliveryStages.includes(mission.status) || (mission.type === 'navette' && mission.picked_up_at)) && (
                 <>
                   <button
                     type="button"
@@ -1833,22 +1959,28 @@ export default function MissionDetails() {
                 contact_name: typeof s === 'string' ? null : (s.contactName || s.contact_name),
                 contact_phone: typeof s === 'string' ? null : (s.contactPhone || s.contact_phone),
                 notes: typeof s === 'string' ? null : s.notes,
-                label: `Étape ${i + 1}`,
+                label: lastStopIsArrival(mission) && i === stops.length - 1 ? "Arrivée" : `Étape ${i + 1}`,
                 type: "stop",
                 deliveryAddress: typeof s === 'string' ? null : (s.deliveryAddress || s.delivery_address || null),
                 deliveryContactName: typeof s === 'string' ? null : (s.deliveryContactName || s.delivery_contact_name || null),
                 deliveryContactPhone: typeof s === 'string' ? null : (s.deliveryContactPhone || s.delivery_contact_phone || null),
               })),
-              { address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null },
+              ...(lastStopIsArrival(mission) ? [] : [{ address: mission.dropoff_address, label: "Arrivée", type: "dropoff", deliveryAddress: null, deliveryContactName: null, deliveryContactPhone: null }]),
             ];
             const totalPoints = allPoints.length;
             const pickedCount = completedStops.length;
             const deliveredCount = deliveredPickups.length;
             const activeIndex = allPoints.findIndex((_, i) => !completedStops.includes(i) && !deliveredPickups.includes(i));
 
+            // Arrêts dont l'enlèvement est déjà fait au départ (même adresse) : pas de second enlèvement
+            const normAddr = (v) => String(v || "").trim().toLowerCase();
+            const samePickupIdxs = allPoints
+              .map((pt, i) => (i > 0 && pt.type === "stop" && normAddr(pt.address) === normAddr(mission.pickup_address) ? i : null))
+              .filter((i) => i !== null);
             const markPickedUp = (idx, recipient, description) => {
               if (!completedStops.includes(idx)) {
-                setCompletedStops(prev => [...prev, idx]);
+                const alsoIdxs = idx === 0 ? samePickupIdxs.filter((i) => !completedStops.includes(i)) : [];
+                setCompletedStops(prev => [...prev, idx, ...alsoIdxs]);
                 const newProgress = { ...(mission.point_progress || {}) };
                 newProgress[idx] = { 
                   ...(newProgress[idx] || {}), 
@@ -1856,6 +1988,9 @@ export default function MissionDetails() {
                   pickupRecipient: recipient,
                   pickupDescription: description
                 };
+                alsoIdxs.forEach((i) => {
+                  newProgress[i] = { ...(newProgress[i] || {}), pickedUpAt: new Date().toISOString(), pickupRecipient: recipient, pickupDescription: description };
+                });
                 
                 const updates = { point_progress: newProgress };
                 if (completedStops.length === 0 && !mission.picked_up_at) {
@@ -1891,6 +2026,7 @@ export default function MissionDetails() {
 
             return (
               <div className="space-y-3">
+                <div className="hidden">
                 {/* Barre de progression */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                   <div className="flex items-center justify-between mb-2">
@@ -2036,7 +2172,7 @@ export default function MissionDetails() {
                           {/* Section Livraison */}
                           {isDeliveryStep && (
                             <div className={`rounded-xl p-3 ${isDelivered ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-emerald-200'}`}>
-                              <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDelivered ? 'text-emerald-600' : 'text-emerald-500'}`}>Livraison</p>
+                              <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDelivered ? 'text-emerald-600' : 'text-emerald-500'}`}>{isLast ? "Arrivée" : "Livraison"}</p>
                               {hasDeliveryAddr ? (
                                 <>
                                   <p className={`text-sm font-bold leading-snug ${isDelivered ? 'text-emerald-700 line-through' : 'text-ink'}`}>
@@ -2081,7 +2217,7 @@ export default function MissionDetails() {
                                     onClick={() => setDeliveryModal({ triggerIdx: idx, selectedIndices: [idx], photo: null })}
                                     className="py-2 rounded-lg bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest shadow active:scale-[0.98] transition-all"
                                   >
-                                    Livraison
+                                    {isLast ? "Arrivée" : "Livraison"}
                                   </button>
                                 </div>
                               )}
@@ -2113,6 +2249,7 @@ export default function MissionDetails() {
                       </details>
                     );
                   })}
+                </div>
                 </div>
                 
                 {/* Modal enlèvement navette */}
@@ -2210,53 +2347,7 @@ export default function MissionDetails() {
             </div>
           )}
 
-          {(isNavette || (Array.isArray(mission.stops) && mission.stops.length > 0)) && (
-          <details className="bg-white rounded-[24px] p-5 shadow-sm border border-slate-100" open>
-            <summary className="list-none cursor-pointer">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <BoxIcon />
-                  </div>
-                  <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-900">Colis & Service</h3>
-                </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-            </summary>
-            <div className="mt-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Véhicule</p>
-                  <p className="text-sm font-bold text-slate-900 capitalize flex items-center gap-2">
-                    <TruckIcon />
-                    {mission.vehicle_type || "Standard"}
-                  </p>
-                </div>
-                <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Formule</p>
-                  <p className="text-sm font-bold capitalize text-ink flex items-center gap-2">
-                    <ZapIcon />
-                    {mission.service_level || "Standard"}
-                  </p>
-                </div>
-              </div>
-              <div className="p-3.5 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Type</p>
-                <p className="text-sm font-bold text-slate-900 capitalize">{mission.package_type || "Colis"}</p>
-              </div>
-              {mission.package_description && (
-                <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                  <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-wider">Nature du contenu</p>
-                  <p className="text-sm font-bold text-slate-900 leading-relaxed italic">{mission.package_description}</p>
-                </div>
-              )}
-
-              {scheduleComment && (
-                <ParsedNotes text={scheduleComment} />
-              )}
-            </div>
-          </details>
-          )}
+          
         </section>
 
       </main>

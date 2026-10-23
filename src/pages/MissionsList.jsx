@@ -1,3 +1,4 @@
+import { countPoints } from "../lib/missionPoints";
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import OnlineSwitch from "../components/OnlineSwitch.jsx";
@@ -206,6 +207,7 @@ export default function MissionsList() {
     const pickupTime = isNavette ? m.start_time : m.scheduled_at;
     const deliveryTime = isNavette ? m.end_time : m.delivery_deadline;
     const label = isNavette ? "Navette" : statusTitle(m.status);
+    const stops = Array.isArray(m.stops) ? m.stops : [];
 
     return (
       <Link
@@ -250,6 +252,14 @@ export default function MissionsList() {
               <p className="mt-0.5 text-[15px] font-bold leading-tight text-ink line-clamp-1">{deliveryName}</p>
               <p className="mt-0.5 text-xs text-muted line-clamp-2">{deliveryAddr}</p>
             </div>
+
+            {stops.length > 0 && (
+              <div className="rounded-lg bg-accent/10 px-3 py-2">
+                <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-accent-dark">
+                  + {stops.length} étape{stops.length > 1 ? "s" : ""} en plus · {countPoints(m)} points
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
